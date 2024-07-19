@@ -410,7 +410,7 @@ etable(
 }
 
 # Run Regressions for different buffer sizes ---------------------------------------
-distances <- c(45, 40, 35,30,25,20)
+distances <- c(50, 45, 40, 35,30,25,20)
 for (distance in distances) {
   run_analysis(distance)
 }
