@@ -1,5 +1,5 @@
 # Aid Management Effectiveness and Educational Outcomes: The infinite-do-loop
-  - This repository contains codes and regression data for "IAid Management Effectiveness and Educational Outcomes: The infinite-do-loop" by Asare
+  - This repository contains codes and regression data for "Aid Management Effectiveness and Educational Outcomes: The infinite-do-loop" by Asare
 
 ## Data_files folder:
   - Include the regression data for all the tables in the paper
