@@ -336,28 +336,8 @@ run_analysis <- function(distance) {
   dhs_shr <- dhs_full |>
     dplyr::group_by(DHSID) |> 
     dplyr::mutate(
-      shr_nosch6yrsup = num_ppl_nosch6yrsup / num_ppl,
       shr_nosch_6_24 = num_ppl_nosch_6_24 / num_schoolage_6_24,
-      shr_nopri_6_24 = num_ppl_nopri_6_24 /num_schoolage_6_24,
-      shr_nosch_6_15 = num_ppl_nosch_6_15/num_child_schoolage,
-      shr_nopri_6_15 = num_ppl_nopri_6_15/num_child_schoolage,
-      shr_nosec_6_24 = num_ppl_nosec_6_24 / num_schoolage_6_24,
-      shr_nohigh_18_24 = num_ppl_nohigh_18_24 / num_schoolage_18_24,
-      shr_yrsch_6yrsch = num_ppl_yrsch_6yrsch / num_ppl,
       shr_in_sch = num_ppl_in_sch / num_schoolage_6_24,
-      shr_in_pri = num_ppl_in_pri / num_schoolage_6_24,
-      shr_in_sec = num_ppl_in_sec / num_schoolage_6_24,
-      shr_in_high = num_ppl_in_high / num_schoolage_18_24,
-      shr_no_sch_25 = num_no_sch_25 / num_ppl_25yrs_older,
-      shr_pri_sch_25 = num_pri_sch_25 / num_ppl_25yrs_older,
-      shr_sec_sch_25 = num_sec_sch_25 / num_ppl_25yrs_older,
-      shr_higher_sch_25 = num_higher_sch_25 / num_ppl_25yrs_older,
-      shr_no_farmers = num_no_farmers / num_ppl,
-      shr_sub_farmers = num_sub_farmers / num_ppl,
-      shr_med_farmers = num_med_farmers / num_ppl,
-      shr_large_farmers = num_large_farmers / num_ppl,
-      shr_other_animals = num_ppl_other_animals / num_ppl,
-      shr_agric_land = num_ppl_agric_land / num_ppl,
       shr_livestock = num_ppl_livestock / num_ppl,
       shr_electric = num_ppl_electric / num_ppl,
       shr_radio = num_ppl_radio / num_ppl,
@@ -389,16 +369,7 @@ run_analysis <- function(distance) {
       av_size_hh = mean(av_size_hh, na.rm = TRUE),
       av_yr_edu = mean(av_yr_edu, na.rm = TRUE),
       av_ll_edu = mean(av_ll_edu, na.rm = TRUE),
-      av_water_time = mean(av_water_time, na.rm = TRUE),
-      shr_hh_child_atten_u = num_hh_child_atten_u/num_ppl,
-      shr_hh_child_atten = num_hh_child_atten/num_ppl,
-      shr_attendance_6_24 = num_attendance_6_24 / num_schoolage_6_24,
-      shr_attendance_6_15 = num_attendance_6_15 / num_child_schoolage,
-      shr_hh_years_edu_u = num_hh_years_edu_u / num_ppl,
-      shr_hh_years_edu6 = num_hh_years_edu6 / num_ppl,
-      shr_literate=num_no_literate/ num_ppl,
-      shr_illiterate=num_no_illiterate/ num_ppl,
-      shr_literacyprg=num_no_literacyprg/ num_ppl
+      av_water_time = mean(av_water_time, na.rm = TRUE)
     ) |>
     dplyr::ungroup() 
   
