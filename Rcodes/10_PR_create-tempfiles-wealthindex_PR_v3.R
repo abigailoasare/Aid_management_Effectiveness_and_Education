@@ -408,7 +408,13 @@ out <- lapply(list_dta, function(x) {
     ) %>%
     dplyr::mutate(dhs_weights = sample_weight / 1000000) %>%
     
-    expss::apply_labels(dhs_weights = "(hv005) sample_weights/1 million") 
+    expss::apply_labels(dhs_weights = "(hv005) sample_weights/1 million") %>%
+
+  # Child School Age ---------------------------------------------
+      dplyr::mutate(
+        schoolage_6_24 = ifelse(age_member >= 6 &
+                                  age_member <= 24, 1, 0)
+      )
   
   return(file)
   
