@@ -1,21 +1,20 @@
 # Aid Management Effectiveness and Educational Outcomes: The infinite-do-loop
   - This repository contains codes and regression data for "Aid Management Effectiveness and Educational Outcomes: The infinite-do-loop" by Asare
-
 ## Data_files folder:
-  - Include the regression data for all the tables in the paper
- **Note:** _Due to confidentiality, we can not make the raw data available_.
-          _However, the datasets can be download from respective data websites (see paper for links and further information)_.
+- This folder contains the regression data for all the tables in the paper.
+-  **Note:** _Due to confidentiality, the raw data cannot be made available_.
+-  However, the datasets can be downloaded from the respective data websites (see the paper for links and further information).
 
 ## Rcodes folder:
-  - 01_dhs_data_prep folder contain scripts for DHS household (PR) data cleaning.
-  - 02_dhs_gps_prep folder contain scripts for cleaning DHS GPS data. 
-  - 03_aid_data_prep folder contain scripts for cleaning the aid data.
-  - 04_dhs_aid_r4r folder contain all scripts for merging DHS houshold data, aid and all the spatial variables.
-  - 05_reg_scripts folder consist of all the regression script used to produce the tables in the main paper.
-  - Maps folder contains scripts used to produces all the maps in the paper.
+- The 01_dhs_data_prep folder contains scripts for cleaning and generating DHS household variables.
+- The 02_dhs_gps_prep folder contains scripts for cleaning DHS GPS data.
+- The 03_aid_data_prep folder contains scripts to clean the aid data and generate variables.
+- The 04_dhs_aid_r4r folder contains all scripts for merging DHS household data, aid, and all the spatial variables.
+- The 05_reg_scripts folder consists of a regression script used to produce the tables in the main paper.
+- The Maps folder contains scripts used to produce the maps in the paper.
 
 ## Maps:
-  - Maps contain all png maps in the paper.
+- The Maps folder contains all PNG maps in the paper.
     
 ## Email contact:
   - abigail.asare@uol.de
