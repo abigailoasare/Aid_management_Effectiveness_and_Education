@@ -87,6 +87,7 @@ ged <- ged %>%
   dplyr::select(ged_id,
                 ged_relid,
                 year,
+                ged_year,
                 ged_active_year,
                 ged_type_of_violence,
                 ged_where_prec,
