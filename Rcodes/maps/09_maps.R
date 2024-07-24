@@ -3,7 +3,6 @@
 # written by: Abigail Opokua Asare
 #             abigail.asare@uol.de
 # 
-# University of Oldenburg, Germany
 
 # Setup -------------------------------------------------------------------
 ## Load Packages -----------------------------------------------------------
