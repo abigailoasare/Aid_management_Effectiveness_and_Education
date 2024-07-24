@@ -16,5 +16,5 @@
 ## Maps:
 - The Maps folder contains all PNG maps in the paper.
     
-## Email contact:
+## Support contact:
   - abigail.asare@uol.de
