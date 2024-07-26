@@ -1,8 +1,6 @@
 # Aid management quality and Educational outcomes
 #
-# written by: Abigail Opokua Asare
-#             abigail.asare@uol.de
-# 
+# written by: Asare
 
 # Setup -------------------------------------------------------------------
 ## Load Packages -----------------------------------------------------------
