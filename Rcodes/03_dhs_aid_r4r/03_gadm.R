@@ -16,16 +16,6 @@ dhs <- "./data-processed/dhs_clusters.shp" |>
   sf::st_set_crs(4326) #|> 
 #sf::st_transform(3857) # Project to web mercator
 
-# 
-# # Define Buffer
-# buffer_dhs <- dhs |> 
-#   st_buffer(units::as_units(50000, "m")) |> 
-#   dplyr::mutate(
-#     buffer_id = row_number()
-#   )
-# 
-# # Centroids of Buffers
-# buffer_centroids <-  st_centroid(buffer_dhs)
 
 ## GADM Data -----------------------------------------------------------
 ### GADM-1
