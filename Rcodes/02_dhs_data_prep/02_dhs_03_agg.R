@@ -25,7 +25,8 @@ dhs_fulla <-
 
 # Generate Variables -----------------------------------------------------------
 # School indicators--Age range: 6-24
-# // Currently in school: edu_inschool (hv110), attendsch_current (hv121), school_status (hv129)
+# // Illiteracy: edu_inschool (hv110), attendsch_current (hv121),
+# school_status (hv129),  edu_attainment (hv109), level_edu(hv106)
 
 # General schooling -----------------------------------------------------------
 
