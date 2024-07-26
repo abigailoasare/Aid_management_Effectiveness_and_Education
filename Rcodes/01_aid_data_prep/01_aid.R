@@ -56,7 +56,8 @@ Aid_locations <- aid_data_locations %>%
                 project_location_id,
                 precision_code,
                 latitude,
-                longitude
+                longitude, 
+                country
   ) %>%
   dplyr::mutate(latitude = as.numeric(latitude),
                 longitude = as.numeric(longitude)) %>%
