@@ -308,8 +308,21 @@ run_analysis <- function(distance) {
         "DHSCLUST" = "dhs_clust"
       )
     ) |> 
-    dplyr::select(-version_GE, -DHSCC, -DHSCLUST, -version, -dhs_year) 
+    dplyr::select(-version_GE, -DHSCC, -DHSCLUST, -dhs_year) 
   
+  
+# Check where these duplicates in DHSID are coming from
+# coming from surveys that spanned more than a year (e.g 2005-06)
+  
+  # dups <- dhs_full |> 
+  #   group_by(DHSID) |> 
+  #   mutate(
+  #     n= n()
+  #   ) |> 
+  #   ungroup() |> 
+  #   select(n, DHSID, everything()) |> 
+  #   filter(n>1) |> 
+  #   distinct(DHSID, .keep_all = T)  
   
   
   
