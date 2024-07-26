@@ -384,9 +384,26 @@ run_analysis <- function(distance) {
   
   full_df[full_df == "Inf"] <- NA
   
-  
   full_df <- full_df |>
     readr::write_csv(paste0("./data-r4r/data_", distance, "km.csv.gz"))
+
+  # Generate variables ------------------------------------------------------------------------------
+
+  full_df <- full_df |>
+        dplyr::mutate(
+          dm_comp_aid_edu = ifelse(aid_complete_edu > 0, 1, 0),
+          dm_comp_ieg_edu_hs = ifelse(comp_ieg_edu_hs > 0, 1, 0),
+          dm_comp_ieg_edu_ms = ifelse(comp_ieg_edu_ms > 0, 1, 0),
+          dm_comp_ieg_edu_ls = ifelse(comp_ieg_edu_ls > 0, 1, 0),
+          dbxr2011_comp_edu1 = log(0.01+dbxr2011_comp_edu),
+          dbxr2011_comp_ieg_edu_hs1 = log(0.01+dbxr2011_comp_ieg_edu_hs),
+          dbxr2011_comp_ieg_edu_ms1 = log(0.01+dbxr2011_comp_ieg_edu_ms),
+          dbxr2011_comp_ieg_edu_ls1 = log(0.01+dbxr2011_comp_ieg_edu_ls),
+        ) |>
+        mutate(gpw_sum=gpw_ip_sum/100000, 
+         shr_neversch_6_24=shr_neversch_6_24*100,
+         GID_2=ifelse(is.na(GID_2),iso2code,GID_2)
+              )
   
   
   rm(list = ls())
