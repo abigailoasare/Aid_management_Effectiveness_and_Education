@@ -56,8 +56,7 @@ Aid_locations <- aid_data_locations %>%
                 project_location_id,
                 precision_code,
                 latitude,
-                longitude,
-                country
+                longitude
   ) %>%
   dplyr::mutate(latitude = as.numeric(latitude),
                 longitude = as.numeric(longitude)) %>%
@@ -717,9 +716,6 @@ Aid_level <- Aid_level %>%
 
 
 
-##  Merge Other Aid data Sets --------------------------------------------------
-
-
 ## Clean the Data --------------------------------------------------------------
 
 ### Keep Project Locations with Geographic Precision <= ADM2 
@@ -736,8 +732,6 @@ Aid_level_1a <- Aid_level_1a %>%
 # Construct Aid Data Variables -------------------------------------------------
 
 
-## Construct Financial Flow Weights Based on Number of Active Projects ----------
-
 Aid_level_1a <- Aid_level_1a %>%
   dplyr::arrange(project_id) %>% 
   dplyr::group_by(project_location_id) %>% 
@@ -748,7 +742,7 @@ Aid_level_1a <- Aid_level_1a %>%
 # set as panel 
 Aid_level_1a <- pdata.frame(Aid_level_1a , index=c("pl_id", "year"))
 
-## Number of project-years across grid cells -------------------------------------
+## Number of project-years  -------------------------------------
 
 Aid_level_1a <- Aid_level_1a %>%
   dplyr::group_by(project_id,year) %>% 
