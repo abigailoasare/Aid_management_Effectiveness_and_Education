@@ -1,5 +1,5 @@
-# Aid Management Effectiveness and Educational Outcomes
-  - This repository contains codes and regression data for "Aid Management Effectiveness and Educational Outcomes" by Asare
+# More Than Money: The Critical Role of Management in Educational Aid Effectiveness in Africa
+  - This repository contains codes and regression data for "More Than Money: The Critical Role of Management in Educational Aid Effectiveness in Africa by Asare
 ## Data_files folder:
 - This folder contains data for data preparation.
 -  **Note:** _Due to confidentiality, the raw data cannot be made available_.
@@ -12,9 +12,10 @@
 - The 03_dhs_aid_r4r folder contains all scripts for merging DHS household data, aid, and all the spatial variables.
 - The 04_reg_scripts folder consists of a regression script used to produce the tables in the main paper.
 - The 05_maps folder contains scripts used to produce the maps in the paper.
+- The 06_other folder contains scripts used to marginal effects and summary statistics in the paper.
 
 ## Maps:
 - The Maps folder contains all PNG maps in the paper.
     
-## Support contact:
+## Contact:
   - abigail.asare@uol.de
