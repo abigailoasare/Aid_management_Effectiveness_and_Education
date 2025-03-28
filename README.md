@@ -3,7 +3,7 @@
 ## Data_files folder:
 - This folder contains data for data preparation.
 -  **Note:** _Due to confidentiality, the raw data cannot be made available_.
--  However, the datasets can be downloaded from the respective data websites (see the paper for links and further information).
+-  However, the datasets can be downloaded from the respective data websites:
     - World Bank dataset: Accessible at \url{https://www.aiddata.org/data/world-bank-geocoded-research-release-level-1-v1-4-2}.
     - DHS survey dataset: Both the survey and GPS data can be downloaded from \url{https://dhsprogram.com/data/available-datasets.cfm}.
 
