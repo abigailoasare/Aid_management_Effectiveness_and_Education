@@ -4,6 +4,8 @@
 - This folder contains data for data preparation.
 -  **Note:** _Due to confidentiality, the raw data cannot be made available_.
 -  However, the datasets can be downloaded from the respective data websites (see the paper for links and further information).
+    - World Bank dataset: Accessible at \url{https://www.aiddata.org/data/world-bank-geocoded-research-release-level-1-v1-4-2}.
+    - DHS survey dataset: Both the survey and GPS data can be downloaded from \url{https://dhsprogram.com/data/available-datasets.cfm}.
 
 ## Rcodes folder
 - The 01_aid_data_prep folder contains scripts to clean the aid data and generate variables.
