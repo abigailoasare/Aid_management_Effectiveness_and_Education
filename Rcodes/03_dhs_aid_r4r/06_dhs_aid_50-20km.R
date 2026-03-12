@@ -93,7 +93,11 @@ run_analysis <- function(distance) {
   join <- sf::st_join(dhs, buffer)
   t1 <- Sys.time()
   print(t1-t0)
-  
+
+ # EXCLUDE cross-border overlaps: 
+ # keep only aid projects in the same country as the DHS cluster
+  join <- join |>
+     dplyr::filter(is.na(iso2_aid) | iso2_aid == DHSCC)
   
   ## Temporal "Join" Aid/DHS -----------------------------------------------------
   t0 <- Sys.time()
@@ -420,6 +424,7 @@ for (distance in distances) {
 }
 
 rm(list = ls())
+
 
 
 
