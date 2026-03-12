@@ -27,7 +27,7 @@ reg_obs = feols(
     gpw_sum +
     sol_mean +
     pre_mean + tmp_mean + spei_mean+
-    av_age_mm + av_size_hh + shr_son_daughter 
+    av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
   | DHSYEAR +
     GID_2
   , data = reg_df
@@ -59,7 +59,7 @@ reg_obs = feols(
     gpw_sum +
     sol_mean +
     pre_mean + tmp_mean + spei_mean+
-    av_age_mm + av_size_hh + shr_son_daughter 
+    av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
   | DHSYEAR +
     GID_2
   , data = reg_rr
@@ -141,7 +141,7 @@ reg_edu = feols(
         gpw_sum,
       sol_mean,
       pre_mean + tmp_mean + spei_mean+
-        av_age_mm + av_size_hh + shr_son_daughter 
+        av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
     )
   | DHSYEAR +
     GID_2
@@ -185,7 +185,7 @@ reg_edu = feols(
            gpw_sum,
          sol_mean,
          pre_mean + tmp_mean + spei_mean+
-           av_age_mm + av_size_hh + shr_son_daughter 
+           av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
     )
   | DHSYEAR +
     GID_2
@@ -236,7 +236,7 @@ reg_edu = feols(
            gpw_sum,
          sol_mean,
          pre_mean + tmp_mean + spei_mean+
-           av_age_mm + av_size_hh + shr_son_daughter 
+           av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
     )
   | DHSYEAR +
     GID_2
@@ -289,7 +289,7 @@ reg_edu = feols(
         gpw_sum,
       sol_mean,
       pre_mean + tmp_mean + spei_mean+
-        av_age_mm + av_size_hh + shr_son_daughter 
+        av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
     )
   | DHSYEAR +
     GID_2
@@ -339,7 +339,7 @@ reg_edu = feols(
            gpw_sum,
          sol_mean,
          pre_mean + tmp_mean + spei_mean+
-           av_age_mm + av_size_hh + shr_son_daughter 
+           av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
     )
   | DHSYEAR +
     GID_2
@@ -390,7 +390,7 @@ reg_edu = feols(
            gpw_sum,
          sol_mean,
          pre_mean + tmp_mean + spei_mean+
-           av_age_mm + av_size_hh + shr_son_daughter 
+           av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
     )
   | DHSYEAR +
     GID_2
@@ -441,7 +441,7 @@ reg_obs = feols(
     gpw_sum +
     sol_mean +
     pre_mean + tmp_mean + spei_mean+
-    av_age_mm + av_size_hh + shr_son_daughter 
+    av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
   | DHSYEAR +
     GID_2
   , data = reg_df
@@ -471,7 +471,7 @@ reg_obs = feols(
     gpw_sum +
     sol_mean +
     pre_mean + tmp_mean + spei_mean+
-    av_age_mm + av_size_hh + shr_son_daughter 
+    av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
   | DHSYEAR +
     GID_2
   , data = reg_rr
@@ -557,7 +557,7 @@ reg_edu = feols(
         gpw_sum,
       sol_mean,
       pre_mean + tmp_mean + spei_mean+
-        av_age_mm + av_size_hh + shr_son_daughter 
+        av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
     )
   | DHSYEAR +
     GID_2
@@ -604,7 +604,7 @@ reg_edu = feols(
            gpw_sum,
          sol_mean,
          pre_mean + tmp_mean + spei_mean+
-           av_age_mm + av_size_hh + shr_son_daughter 
+           av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
     )
   | DHSYEAR +
     GID_2
@@ -656,7 +656,7 @@ reg_edu = feols(
            gpw_sum,
          sol_mean,
          pre_mean + tmp_mean + spei_mean+
-           av_age_mm + av_size_hh + shr_son_daughter 
+           av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
     )
   | DHSYEAR +
     GID_2
@@ -699,4 +699,5 @@ etable(
 
 
 rm(list = ls())
+
 
