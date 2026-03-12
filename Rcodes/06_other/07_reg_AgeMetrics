@@ -1,0 +1,330 @@
+# Authors: Abigail O. Asare
+# Date:12/03/2026
+# Load packages ----------------------------------------------------------------
+library(haven)
+library(dplyr)
+library(foreign)
+library(tidyverse)
+library(ggplot2)
+library(data.table)
+library(expss)
+library(Hmisc)
+library(fixest)
+
+# Set directories
+table_dir <- "./output/tables/"
+data_dir  <- "./data-r4r/"
+
+dir.create(table_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Age metrics to loop over
+age_metrics <- c(
+  "shr_neversch_10_24",
+  "shr_neversch_15_24",
+  "shr_neversch_18_24"
+)
+
+# Function now takes distance + depvar -----------------------------------------
+run_analysis <- function(distance, depvar) {
+  
+  # Read data --------------------------------------------------------------------
+  data_file <- paste0(data_dir, "data_", distance, "km.csv.gz")
+  reg_df <- fread(data_file)
+  
+  # Generate dummies for IEG + transforms ----------------------------------------
+  reg_df <- reg_df |>
+    mutate(
+      dm_comp_aid_edu = ifelse(aid_complete_edu > 0, 1, 0),
+      dm_comp_ieg_edu_hs = ifelse(comp_ieg_edu_hs > 0, 1, 0),
+      dm_comp_ieg_edu_ms = ifelse(comp_ieg_edu_ms > 0, 1, 0),
+      dm_comp_ieg_edu_ls = ifelse(comp_ieg_edu_ls > 0, 1, 0),
+      
+      dbxr2011_comp_edu1 = log(0.01 + dbxr2011_comp_edu),
+      dbxr2011_comp_ieg_edu_hs1 = log(0.01 + dbxr2011_comp_ieg_edu_hs),
+      dbxr2011_comp_ieg_edu_ms1 = log(0.01 + dbxr2011_comp_ieg_edu_ms),
+      dbxr2011_comp_ieg_edu_ls1 = log(0.01 + dbxr2011_comp_ieg_edu_ls),
+      
+      gpw_sum = gpw_ip_sum / 100000,
+      
+      # IMPORTANT: scale the chosen depvar to percent (assumes share in [0,1])
+      "{depvar}" := .data[[depvar]] * 100,
+      
+      GID_2 = ifelse(is.na(GID_2), iso2code, GID_2)
+    )
+  
+  var_names <- c(
+    "dm_comp_aid_edu" = "Educational project",
+    "aid_complete_edu" = "Num. educational projects",
+    "dbxr2011_comp_edu1" = "ln(Value Edu.)",
+    "dm_comp_ieg_edu_hs" = "HS",
+    "dm_comp_ieg_edu_ms" = "MS",
+    "dm_comp_ieg_edu_ls" = "LS",
+    "I(dm_comp_ieg_edu_hs*dm_comp_ieg_edu_ms)" = "HS × MS",
+    "I(dm_comp_ieg_edu_hs*dm_comp_ieg_edu_ls)" = "HS × LS",
+    "I(dm_comp_ieg_edu_ms*dm_comp_ieg_edu_ls)" = "MS × LS",
+    "comp_ieg_edu_hs" = "HS",
+    "comp_ieg_edu_ms" = "MS",
+    "comp_ieg_edu_ls" = "LS",
+    "I(comp_ieg_edu_hs*comp_ieg_edu_ms)" = "HS × MS",
+    "I(comp_ieg_edu_hs*comp_ieg_edu_ls)" = "HS × LS",
+    "I(comp_ieg_edu_ms*comp_ieg_edu_ls)" = "MS × LS",
+    "dbxr2011_comp_ieg_edu_hs1" = "ln(HS)",
+    "dbxr2011_comp_ieg_edu_ms1" = "ln(MS)",
+    "dbxr2011_comp_ieg_edu_ls1" = "ln(LS)",
+    "I(dbxr2011_comp_ieg_edu_hs1*dbxr2011_comp_ieg_edu_ms1)" = "ln(HS × MS)",
+    "I(dbxr2011_comp_ieg_edu_hs1*dbxr2011_comp_ieg_edu_ls1)" = "ln(HS × LS)",
+    "I(dbxr2011_comp_ieg_edu_ms1*dbxr2011_comp_ieg_edu_ls1)" = "ln(MS × LS)"
+  )
+  
+
+  # Helper strings for titles/files  
+  dep_label <- gsub("_", "-", depvar)
+
+  # INDICATORS ============================================================
+  
+  # Set Estimation Sample --------------------------------
+  reg_obs <- feols(
+    as.formula(paste0(depvar, " ~ aid_complete_edu + ",
+                      "conflict_5y_n + I(conflict_5y_n == 0) + ",
+                      "gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean + ",
+                      "av_age_mm + av_age_head + av_size_hh + shr_son_daughter | ",
+                      "DHSYEAR + GID_2")),
+    data = reg_df
+  )
+  
+  # Remove Obs that are not part of sample from original data set
+  sample_dhs <- reg_df[unlist(reg_obs$obs_selection), ]
+  
+  # -------- extralines (REGISTER ONCE PER LOOP, using sample_dhs) -------------
+  unique_clust <- function(x) length(unique(sample_dhs$DHSID))
+  extralines_register("num_clust", unique_clust, "clust_num")
+  
+  treated_clust <- function(x) {
+    length(unique(sample_dhs |> dplyr::filter(wbAid > 0) |> pull(DHSID)))
+  }
+  extralines_register("tt_clust", treated_clust, "clust_tt")
+  
+  comp_clust <- function(x) {
+    length(unique(sample_dhs |> dplyr::filter(aid_complete > 0) |> pull(DHSID)))
+  }
+  extralines_register("comp_aid", comp_clust, "aid_comp")
+  
+  nontreated_clust <- function(x) {
+    length(unique(sample_dhs |> dplyr::filter(edu > 0) |> pull(DHSID)))
+  }
+  extralines_register("ntt_clust", nontreated_clust, "num_clust")
+  
+  comp_edu <- function(x) {
+    length(unique(sample_dhs |> dplyr::filter(aid_complete_edu > 0) |> pull(DHSID)))
+  }
+  extralines_register("edu_aid", comp_edu, "aid_edu")
+  
+  # Edu aid (dummies)
+  reg_ind1 <- feols(
+    as.formula(paste0(depvar, " ~ dm_comp_aid_edu + ",
+                      "conflict_5y_n + I(conflict_5y_n == 0) + ",
+                      "gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean + ",
+                      "av_age_mm + av_age_head + av_size_hh + shr_son_daughter | ",
+                      "DHSYEAR + GID_2")),
+    data = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  # IEG (dummies)
+  reg_ind2 <- feols(
+    as.formula(paste0(depvar, " ~ dm_comp_ieg_edu_hs + dm_comp_ieg_edu_ms + dm_comp_ieg_edu_ls + ",
+                      "conflict_5y_n + I(conflict_5y_n == 0) + ",
+                      "gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean + ",
+                      "av_age_mm + av_age_head + av_size_hh + shr_son_daughter | ",
+                      "DHSYEAR + GID_2")),
+    data = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  # Interactions (dummies)
+  reg_ind3 <- feols(
+    as.formula(paste0(depvar, " ~ dm_comp_ieg_edu_hs + dm_comp_ieg_edu_ms + dm_comp_ieg_edu_ls + ",
+                      "I(dm_comp_ieg_edu_hs*dm_comp_ieg_edu_ms) + ",
+                      "I(dm_comp_ieg_edu_hs*dm_comp_ieg_edu_ls) + ",
+                      "I(dm_comp_ieg_edu_ms*dm_comp_ieg_edu_ls) + ",
+                      "conflict_5y_n + I(conflict_5y_n == 0) + ",
+                      "gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean + ",
+                      "av_age_mm + av_age_head + av_size_hh + shr_son_daughter | ",
+                      "DHSYEAR + GID_2")),
+    data = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  etable(
+    reg_ind1, reg_ind2, reg_ind3,
+    cluster = ~DHSID,
+    dict = var_names,
+    keep = paste0("%", names(var_names)),
+    signif.code = c("*" = .1, "**" = .05, "***" = 0.01),
+    title = paste0("Share of HH ", dep_label, " with no School — Aid Indicator (", distance, "km)"),
+    fitstat = ~ . + ivfall + ivwaldall.p,
+    tex = TRUE,
+    file = file.path(table_dir, paste0(depvar, "_ind_", distance, "km2_R1.tex")),
+    replace = TRUE,
+    extralines = list(
+      "_^Number of DHS Clusters" =  ~ num_clust,
+      "_^Number of DHS Clusters with Aid" =  ~ tt_clust,
+      "_^Number of DHS Clusters with Educational Aid" =  ~ ntt_clust,
+      "_^Number of DHS Clusters with Completed Aid" =  ~ comp_aid,
+      "_^Number of DHS Clusters with Completed Educational Aid" =  ~ edu_aid
+    )
+  )
+  
+
+  # COUNTS ============================================================
+  
+  reg_cc1 <- feols(
+    as.formula(paste0(depvar, " ~ aid_complete_edu + ",
+                      "conflict_5y_n + I(conflict_5y_n == 0) + ",
+                      "gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean + ",
+                      "av_age_mm + av_age_head + av_size_hh + shr_son_daughter | ",
+                      "DHSYEAR + GID_2")),
+    data = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  reg_cc2 <- feols(
+    as.formula(paste0(depvar, " ~ comp_ieg_edu_hs + comp_ieg_edu_ms + comp_ieg_edu_ls + ",
+                      "conflict_5y_n + I(conflict_5y_n == 0) + ",
+                      "gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean + ",
+                      "av_age_mm + av_age_head + av_size_hh + shr_son_daughter | ",
+                      "DHSYEAR + GID_2")),
+    data = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  reg_cc3 <- feols(
+    as.formula(paste0(depvar, " ~ comp_ieg_edu_hs + comp_ieg_edu_ms + comp_ieg_edu_ls + ",
+                      "I(comp_ieg_edu_hs*comp_ieg_edu_ms) + ",
+                      "I(comp_ieg_edu_hs*comp_ieg_edu_ls) + ",
+                      "I(comp_ieg_edu_ms*comp_ieg_edu_ls) + ",
+                      "conflict_5y_n + I(conflict_5y_n == 0) + ",
+                      "gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean + ",
+                      "av_age_mm + av_age_head + av_size_hh + shr_son_daughter | ",
+                      "DHSYEAR + GID_2")),
+    data = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  etable(
+    reg_cc1, reg_cc2, reg_cc3,
+    cluster = ~DHSID,
+    dict = var_names,
+    keep = paste0("%", names(var_names)),
+    signif.code = c("*" = .1, "**" = .05, "***" = 0.01),
+    title = paste0("Share of HH ", dep_label, " with no School — Aid Counts (", distance, "km)"),
+    fitstat = ~ . + ivfall + ivwaldall.p,
+    tex = TRUE,
+    file = file.path(table_dir, paste0(depvar, "_cc_", distance, "km2_R1.tex")),
+    replace = TRUE,
+    extralines = list(
+      "_^Number of DHS Clusters" =  ~ num_clust,
+      "_^Number of DHS Clusters with Aid" =  ~ tt_clust,
+      "_^Number of DHS Clusters with Educational Aid" =  ~ ntt_clust,
+      "_^Number of DHS Clusters with Completed Aid" =  ~ comp_aid,
+      "_^Number of DHS Clusters with Completed Educational Aid" =  ~ edu_aid
+    )
+  )
+  
+
+  # DISBURSEMENT ============================================================
+  
+  # Re-define estimation sample for disbursement
+  reg_obs_db <- feols(
+    as.formula(paste0(depvar, " ~ dbxr2011_comp_edu1 + ",
+                      "conflict_5y_n + I(conflict_5y_n == 0) + ",
+                      "gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean + ",
+                      "av_age_mm + av_age_head + av_size_hh + shr_son_daughter | ",
+                      "DHSYEAR + GID_2")),
+    data = reg_df
+  )
+  
+  # Refresh sample_dhs for disbursement-based sample (so extralines match)
+  sample_dhs <- reg_df[unlist(reg_obs_db$obs_selection), ]
+  
+  # re-register extralines based on updated sample_dhs
+  unique_clust <- function(x) length(unique(sample_dhs$DHSID))
+  extralines_register("num_clust", unique_clust, "clust_num")
+  treated_clust <- function(x) length(unique(sample_dhs |> dplyr::filter(wbAid > 0) |> pull(DHSID)))
+  extralines_register("tt_clust", treated_clust, "clust_tt")
+  comp_clust <- function(x) length(unique(sample_dhs |> dplyr::filter(aid_complete > 0) |> pull(DHSID)))
+  extralines_register("comp_aid", comp_clust, "aid_comp")
+  nontreated_clust <- function(x) length(unique(sample_dhs |> dplyr::filter(edu > 0) |> pull(DHSID)))
+  extralines_register("ntt_clust", nontreated_clust, "num_clust")
+  comp_edu <- function(x) length(unique(sample_dhs |> dplyr::filter(aid_complete_edu > 0) |> pull(DHSID)))
+  extralines_register("edu_aid", comp_edu, "aid_edu")
+  
+  reg_db1 <- feols(
+    as.formula(paste0(depvar, " ~ dbxr2011_comp_edu1 + ",
+                      "conflict_5y_n + I(conflict_5y_n == 0) + ",
+                      "gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean + ",
+                      "av_age_mm + av_age_head + av_size_hh + shr_son_daughter | ",
+                      "DHSYEAR + GID_2")),
+    data = reg_df,
+    subset = obs(reg_obs_db)
+  )
+  
+  reg_db2 <- feols(
+    as.formula(paste0(depvar, " ~ dbxr2011_comp_ieg_edu_hs1 + dbxr2011_comp_ieg_edu_ms1 + dbxr2011_comp_ieg_edu_ls1 + ",
+                      "conflict_5y_n + I(conflict_5y_n == 0) + ",
+                      "gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean + ",
+                      "av_age_mm + av_age_head + av_size_hh + shr_son_daughter | ",
+                      "DHSYEAR + GID_2")),
+    data = reg_df,
+    subset = obs(reg_obs_db)
+  )
+  
+  reg_db3 <- feols(
+    as.formula(paste0(depvar, " ~ dbxr2011_comp_ieg_edu_hs1 + dbxr2011_comp_ieg_edu_ms1 + dbxr2011_comp_ieg_edu_ls1 + ",
+                      "I(dbxr2011_comp_ieg_edu_hs1*dbxr2011_comp_ieg_edu_ms1) + ",
+                      "I(dbxr2011_comp_ieg_edu_hs1*dbxr2011_comp_ieg_edu_ls1) + ",
+                      "I(dbxr2011_comp_ieg_edu_ms1*dbxr2011_comp_ieg_edu_ls1) + ",
+                      "conflict_5y_n + I(conflict_5y_n == 0) + ",
+                      "gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean + ",
+                      "av_age_mm + av_age_head + av_size_hh + shr_son_daughter | ",
+                      "DHSYEAR + GID_2")),
+    data = reg_df,
+    subset = obs(reg_obs_db)
+  )
+  
+  etable(
+    reg_db1, reg_db2, reg_db3,
+    cluster = ~DHSID,
+    dict = var_names,
+    keep = paste0("%", names(var_names)),
+    signif.code = c("*" = .1, "**" = .05, "***" = 0.01),
+    title = paste0("Share of HH ", dep_label, " with no School — Disbursement (", distance, "km)"),
+    fitstat = ~ . + ivfall + ivwaldall.p,
+    tex = TRUE,
+    file = file.path(table_dir, paste0(depvar, "_db_", distance, "km2_R1.tex")),
+    replace = TRUE,
+    extralines = list(
+      "_^Number of DHS Clusters" =  ~ num_clust,
+      "_^Number of DHS Clusters with Aid" =  ~ tt_clust,
+      "_^Number of DHS Clusters with Educational Aid" =  ~ ntt_clust,
+      "_^Number of DHS Clusters with Completed Aid" =  ~ comp_aid,
+      "_^Number of DHS Clusters with Completed Educational Aid" =  ~ edu_aid
+    )
+  )
+  
+  # Clean up within function scope
+  invisible(TRUE)
+}
+
+# Run loops ============================================================
+
+distances <- c(50)
+
+for (distance in distances) {
+  for (depvar in age_metrics) {
+    message("Running: distance=", distance, "km ; depvar=", depvar)
+    run_analysis(distance, depvar)
+  }
+}
+
+rm(list = ls())
