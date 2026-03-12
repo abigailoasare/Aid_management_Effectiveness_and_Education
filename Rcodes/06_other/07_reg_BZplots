@@ -1,0 +1,824 @@
+# Authors: Abigail O. Asare
+# Date:12/03/2026
+library(data.table)
+library(dplyr)
+library(fixest)
+library(ggplot2)
+
+# Set directories ----------------------------------------------------------
+table_dir <- "./output/tables/"
+figure_dir <- "./output/figures/"
+data_dir  <- "./data-r4r/"
+
+# Set Distance Buffers --------------------------------------------------
+distances <- c(50, 45, 40, 35, 30, 25, 20)
+
+
+# Variables to keep ------------------------------------------------
+
+var_names <- c(
+  "dm_comp_aid_edu" = "Educational project",
+  "aid_complete_edu" = "Num. educational projects",
+  "dbxr2011_comp_edu1" = "ln(Value Edu.)",
+  "dm_comp_ieg_edu_hs" = "HS",
+  "dm_comp_ieg_edu_ms" = "MS",
+  "dm_comp_ieg_edu_ls" = "LS",
+  "I(dm_comp_ieg_edu_hs * dm_comp_ieg_edu_ms)" = "HS × MS",
+  "I(dm_comp_ieg_edu_hs * dm_comp_ieg_edu_ls)" = "HS × LS",
+  "I(dm_comp_ieg_edu_ms * dm_comp_ieg_edu_ls)" = "MS × LS",
+  "comp_ieg_edu_hs" = "HS",
+  "comp_ieg_edu_ms" = "MS",
+  "comp_ieg_edu_ls" = "LS",
+  "I(comp_ieg_edu_hs * comp_ieg_edu_ms)" = "HS × MS",
+  "I(comp_ieg_edu_hs * comp_ieg_edu_ls)" = "HS × LS",
+  "I(comp_ieg_edu_ms * comp_ieg_edu_ls)" = "MS × LS",
+  "dbxr2011_comp_ieg_edu_hs1" = "ln(HS)",
+  "dbxr2011_comp_ieg_edu_ms1" = "ln(MS)",
+  "dbxr2011_comp_ieg_edu_ls1" = "ln(LS)",
+  "I(dbxr2011_comp_ieg_edu_hs1 * dbxr2011_comp_ieg_edu_ms1)" = "ln(HS × MS)",
+  "I(dbxr2011_comp_ieg_edu_hs1 * dbxr2011_comp_ieg_edu_ls1)" = "ln(HS × LS)",
+  "I(dbxr2011_comp_ieg_edu_ms1 * dbxr2011_comp_ieg_edu_ls1)" = "ln(MS × LS)"
+)
+
+# Functions to extract coefficients -----------------------------------------
+extract_coefs <- function(model, distance, model_name, cluster_fml = ~DHSID) {
+  ct <- as.data.frame(summary(model, cluster = cluster_fml)$coeftable)
+  ct$term <- rownames(ct)
+  rownames(ct) <- NULL
+  
+  # Standardize column names from fixest coeftable
+  # Estimate, Std. Error, t value, Pr(>|t|)
+  setDT(ct)
+  setnames(ct,
+           old = intersect(names(ct), c("Estimate", "Std. Error", "Pr(>|t|)")),
+           new = c("estimate", "std_error", "p_value")[1:length(intersect(names(ct), c("Estimate", "Std. Error", "Pr(>|t|)")))]
+  )
+  
+  # If fixest uses different naming (rare), fallback:
+  if (!("estimate" %in% names(ct))) ct[, estimate := get(names(ct)[1])]
+  if (!("std_error" %in% names(ct))) ct[, std_error := get(names(ct)[2])]
+  
+  ct[, `:=`(
+    distance = distance,
+    model    = model_name,
+    conf_low = estimate - 1.96 * std_error,
+    conf_high= estimate + 1.96 * std_error
+  )]
+  ct[]
+}
+
+#  Indicator  -----------------------------------------------------------------
+## Regressions Column 1 and 2 of Paper -----------------------------------
+
+run_reg1 <- function(distance) {
+  data_file <- file.path(data_dir, paste0("data_", distance, "km.csv.gz"))
+  reg_df <- fread(data_file)
+  
+  reg_df <- reg_df |>
+    mutate(
+      dm_comp_aid_edu        = ifelse(aid_complete_edu > 0, 1, 0),
+      dm_comp_ieg_edu_hs     = ifelse(comp_ieg_edu_hs > 0, 1, 0),
+      dm_comp_ieg_edu_ms     = ifelse(comp_ieg_edu_ms > 0, 1, 0),
+      dm_comp_ieg_edu_ls     = ifelse(comp_ieg_edu_ls > 0, 1, 0),
+      dbxr2011_comp_edu1     = log(0.01 + dbxr2011_comp_edu),
+      dbxr2011_comp_ieg_edu_hs1 = log(0.01 + dbxr2011_comp_ieg_edu_hs),
+      dbxr2011_comp_ieg_edu_ms1 = log(0.01 + dbxr2011_comp_ieg_edu_ms),
+      dbxr2011_comp_ieg_edu_ls1 = log(0.01 + dbxr2011_comp_ieg_edu_ls),
+      gpw_sum                = gpw_ip_sum / 100000,
+      shr_neversch_6_24      = shr_neversch_6_24 * 100,
+      GID_2                  = ifelse(is.na(GID_2), iso2code, GID_2)
+    )
+  
+  # Define the estimation sample 
+  reg_obs <- feols(
+    shr_neversch_6_24 ~ aid_complete_edu +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data = reg_df
+  )
+  
+  # Now the three models on the same sample
+  reg_ind1 <- feols(
+    shr_neversch_6_24 ~ dm_comp_aid_edu +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data   = reg_df,
+    subset = obs(reg_obs)
+  )
+
+  reg_ind2 <- feols(
+    shr_neversch_6_24 ~ dm_comp_ieg_edu_hs + dm_comp_ieg_edu_ms + dm_comp_ieg_edu_ls +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data   = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  # Extract coefs (clustered) and keep only terms you care about
+  keep_terms <- names(var_names)
+  
+  out <- rbindlist(list(
+    extract_coefs(reg_ind1, distance, "Edu. aid dummy"),
+    extract_coefs(reg_ind2, distance, "Management Rating")
+  ), use.names = TRUE, fill = TRUE)
+  
+  out <- out[term %in% keep_terms]
+  out[, term_label := unname(var_names[term])]
+  out[]
+}
+
+
+### Run regressions -------------------------------------------------
+estimates_dt <- rbindlist(lapply(distances, run_reg1), use.names = TRUE, fill = TRUE)
+
+
+### Plot regressions ----------------------------------------------------------
+
+# ensure ordered facets
+facet_order <- c("Educational project","HS", "MS", "LS", "HS × MS", "HS × LS", "MS × LS")
+estimates_dt[, term_label := factor(trimws(as.character(term_label)), levels = facet_order)]
+estimates_dt <- estimates_dt[!is.na(term_label)]
+
+
+# color-blind–safe palette (Okabe–Ito)
+cb_palette <- c(
+  "Educational Project"      = "gray",
+  "HS"      = "#0072B2",
+  "MS"      = "#009E73",
+  "LS"      = "#E69F00",
+  "HS × MS" = "#CC79A7",
+  "HS × LS" = "#56B4E9",
+  "MS × LS" = "#D55E00"
+)
+
+inter_plot1 <- ggplot(
+  estimates_dt[order(distance)],
+  aes(x = distance, y = estimate, 
+      colour = term_label,
+      group = model, 
+      linetype = model, 
+      shape = model)
+) +
+  geom_hline(yintercept = 0) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 2) +
+  geom_errorbar(
+    aes(ymin = conf_low, ymax = conf_high),
+    width = 0.6,       # horizontal cap width (in x units, here km)
+    linewidth = 0.6
+  ) +
+  scale_x_reverse(breaks = sort(unique(estimates_dt$distance))) +
+  scale_colour_manual(values = cb_palette, drop = FALSE) +
+  facet_wrap(~ term_label, scales = "free_y", ncol = 2) +
+    labs(
+      x = "Buffer radius (km)",
+      y = "Coefficient estimate (clustered SE; 95% CI)",
+      colour= "Colour",
+      linetype = "Specification",
+      shape = "Specification",
+      fill = "Specification"
+    ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    legend.text = element_text(size = 20),
+    axis.text.x = element_text(size = 20),
+    axis.text.y = element_text(size = 20),
+    axis.title = element_text(size = 22, face = "bold"),
+    strip.text = element_text(size = 20, face = "bold"),
+    panel.border = element_rect(linewidth = 0.3)
+  )
+
+inter_plot1
+
+# save plots
+ggsave(filename = file.path(figure_dir, "coefPlot_ind.png"),
+       plot = inter_plot1, width = 14, height = 8, dpi = 600)
+
+rm(inter_plot1,estimates_dt,run_reg1)
+
+## Interactions Regression Column (3) of Paper -----------------------------------------------
+
+run_reg2 <- function(distance) {
+  data_file <- file.path(data_dir, paste0("data_", distance, "km.csv.gz"))
+  reg_df <- fread(data_file)
+  
+  reg_df <- reg_df |>
+    mutate(
+      dm_comp_aid_edu        = ifelse(aid_complete_edu > 0, 1, 0),
+      dm_comp_ieg_edu_hs     = ifelse(comp_ieg_edu_hs > 0, 1, 0),
+      dm_comp_ieg_edu_ms     = ifelse(comp_ieg_edu_ms > 0, 1, 0),
+      dm_comp_ieg_edu_ls     = ifelse(comp_ieg_edu_ls > 0, 1, 0),
+      dbxr2011_comp_edu1     = log(0.01 + dbxr2011_comp_edu),
+      dbxr2011_comp_ieg_edu_hs1 = log(0.01 + dbxr2011_comp_ieg_edu_hs),
+      dbxr2011_comp_ieg_edu_ms1 = log(0.01 + dbxr2011_comp_ieg_edu_ms),
+      dbxr2011_comp_ieg_edu_ls1 = log(0.01 + dbxr2011_comp_ieg_edu_ls),
+      gpw_sum                = gpw_ip_sum / 100000,
+      shr_neversch_6_24      = shr_neversch_6_24 * 100,
+      GID_2                  = ifelse(is.na(GID_2), iso2code, GID_2)
+    )
+  
+  # Define the estimation sample 
+  reg_obs <- feols(
+    shr_neversch_6_24 ~ aid_complete_edu +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data = reg_df
+  )
+  
+  # Now theinterractions models on the same sample
+  
+  reg_ind3 <- feols(
+    shr_neversch_6_24 ~
+      dm_comp_ieg_edu_hs + dm_comp_ieg_edu_ms + dm_comp_ieg_edu_ls +
+      I(dm_comp_ieg_edu_hs*dm_comp_ieg_edu_ms) +
+      I(dm_comp_ieg_edu_hs*dm_comp_ieg_edu_ls) +
+      I(dm_comp_ieg_edu_ms*dm_comp_ieg_edu_ls) +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data   = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  # Extract coefs (clustered) and keep only terms you care about
+  keep_terms <- names(var_names)
+  
+  out <- rbindlist(list(
+    extract_coefs(reg_ind3, distance, "Interactions")
+  ), use.names = TRUE, fill = TRUE)
+  
+  out <- out[term %in% keep_terms]
+  out[, term_label := unname(var_names[term])]
+  out[]
+}
+
+### Run regressions ---------------------------------------
+estimates_dt <- rbindlist(lapply(distances, run_reg2), use.names = TRUE, fill = TRUE)
+
+### Plots for interactions ----------------------------------------------
+# ensure ordered facets
+facet_order <- c("HS", "MS", "LS", "HS × MS", "HS × LS", "MS × LS")
+estimates_dt[, term_label := factor(trimws(as.character(term_label)), levels = facet_order)]
+estimates_dt <- estimates_dt[!is.na(term_label)]
+
+inter_plot2 <- ggplot(
+  estimates_dt[order(distance)],
+  aes(x = distance, y = estimate, 
+      colour = term_label, 
+      group = term_label, 
+      shape = term_label
+      )
+  ) +
+  geom_hline(yintercept = 0) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 2) +
+  geom_errorbar(
+    aes(ymin = conf_low, ymax = conf_high),
+    width = 0.6,  
+    linewidth = 0.6
+  ) +
+  scale_x_reverse(breaks = sort(unique(estimates_dt$distance))) +
+  scale_colour_manual(values = cb_palette, drop = FALSE) +
+  facet_wrap(~ term_label, scales = "free_y", ncol = 3) +
+  labs(
+    x = "Buffer radius (km)",
+    y = "Coefficient estimate (clustered SE; 95% CI)",
+    colour= "Colour",
+    shape = "Type"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    legend.text = element_text(size = 20),
+    axis.text.x = element_text(size = 20),
+    axis.text.y = element_text(size = 20),
+    axis.title = element_text(size = 22, face = "bold"),
+    strip.text = element_text(size = 20, face = "bold"),
+    panel.border = element_rect(linewidth = 0.3)
+  )
+
+inter_plot2
+
+ggsave(filename = file.path(figure_dir, "coefPlot_indx.png"),
+       plot = inter_plot2, width = 14, height = 8, dpi = 600)
+
+rm(inter_plot2,estimates_dt,run_reg2)
+
+
+#  Counts  -----------------------------------------------------------------
+## Regressions Column 1 and 2 of Paper -----------------------------------
+
+run_reg1 <- function(distance) {
+  data_file <- file.path(data_dir, paste0("data_", distance, "km.csv.gz"))
+  reg_df <- fread(data_file)
+  
+  reg_df <- reg_df |>
+    mutate(
+      dm_comp_aid_edu        = ifelse(aid_complete_edu > 0, 1, 0),
+      dm_comp_ieg_edu_hs     = ifelse(comp_ieg_edu_hs > 0, 1, 0),
+      dm_comp_ieg_edu_ms     = ifelse(comp_ieg_edu_ms > 0, 1, 0),
+      dm_comp_ieg_edu_ls     = ifelse(comp_ieg_edu_ls > 0, 1, 0),
+      dbxr2011_comp_edu1     = log(0.01 + dbxr2011_comp_edu),
+      dbxr2011_comp_ieg_edu_hs1 = log(0.01 + dbxr2011_comp_ieg_edu_hs),
+      dbxr2011_comp_ieg_edu_ms1 = log(0.01 + dbxr2011_comp_ieg_edu_ms),
+      dbxr2011_comp_ieg_edu_ls1 = log(0.01 + dbxr2011_comp_ieg_edu_ls),
+      gpw_sum                = gpw_ip_sum / 100000,
+      shr_neversch_6_24      = shr_neversch_6_24 * 100,
+      GID_2                  = ifelse(is.na(GID_2), iso2code, GID_2)
+    )
+  
+  # Define the estimation sample 
+  reg_obs <- feols(
+    shr_neversch_6_24 ~ aid_complete_edu +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data = reg_df
+  )
+  
+  # Now the three models on the same sample
+  reg_ind1 <- feols(
+    shr_neversch_6_24 ~ aid_complete_edu +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data   = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  reg_ind2 <- feols(
+    shr_neversch_6_24 ~ comp_ieg_edu_hs + comp_ieg_edu_ms + comp_ieg_edu_ls +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data   = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  # Extract coefs (clustered) and keep only terms you care about
+  keep_terms <- names(var_names)
+  
+  out <- rbindlist(list(
+    extract_coefs(reg_ind1, distance, "Edu. aid dummy"),
+    extract_coefs(reg_ind2, distance, "Management Rating")
+  ), use.names = TRUE, fill = TRUE)
+  
+  out <- out[term %in% keep_terms]
+  out[, term_label := unname(var_names[term])]
+  out[]
+}
+
+
+### Run regressions -------------------------------------------------
+estimates_dt <- rbindlist(lapply(distances, run_reg1), use.names = TRUE, fill = TRUE)
+
+
+### Plot regressions ----------------------------------------------------------
+
+# ensure ordered facets
+facet_order <- c("Num. educational projects","HS", "MS", "LS", "HS × MS", "HS × LS", "MS × LS")
+estimates_dt[, term_label := factor(trimws(as.character(term_label)), levels = facet_order)]
+estimates_dt <- estimates_dt[!is.na(term_label)]
+
+# color-blind–safe palette (Okabe–Ito)
+cb_palette <- c(
+  "Num. educational projects"      = "gray",
+  "HS"      = "#0072B2",
+  "MS"      = "#009E73",
+  "LS"      = "#E69F00",
+  "HS × MS" = "#CC79A7",
+  "HS × LS" = "#56B4E9",
+  "MS × LS" = "#D55E00"
+)
+
+inter_plot1 <- ggplot(
+  estimates_dt[order(distance)],
+  aes(x = distance, y = estimate, 
+      colour = term_label,
+      group = model, 
+      linetype = model, 
+      shape = model)
+) +
+  geom_hline(yintercept = 0) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 2) +
+  geom_errorbar(
+    aes(ymin = conf_low, ymax = conf_high),
+    width = 0.6,       # horizontal cap width (in x units, here km)
+    linewidth = 0.6
+  ) +
+  scale_x_reverse(breaks = sort(unique(estimates_dt$distance))) +
+  scale_colour_manual(values = cb_palette, drop = FALSE) +
+  facet_wrap(~ term_label, scales = "free_y", ncol = 2) +
+  labs(
+    x = "Buffer radius (km)",
+    y = "Coefficient estimate (clustered SE; 95% CI)",
+    colour= "Colour",
+    linetype = "Specification",
+    shape = "Specification",
+    fill = "Specification"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    legend.text = element_text(size = 20),
+    axis.text.x = element_text(size = 20),
+    axis.text.y = element_text(size = 20),
+    axis.title = element_text(size = 22, face = "bold"),
+    strip.text = element_text(size = 20, face = "bold"),
+    panel.border = element_rect(linewidth = 0.3)
+  )
+
+inter_plot1
+
+# save plots
+ggsave(filename = file.path(figure_dir, "coefPlot_cc.png"),
+       plot = inter_plot1, width = 14, height = 8, dpi = 600)
+
+rm(inter_plot1,estimates_dt,run_reg1)
+
+## Interactions Regression Column (3) of Paper -----------------------------------------------
+
+run_reg2 <- function(distance) {
+  data_file <- file.path(data_dir, paste0("data_", distance, "km.csv.gz"))
+  reg_df <- fread(data_file)
+  
+  reg_df <- reg_df |>
+    mutate(
+      dm_comp_aid_edu        = ifelse(aid_complete_edu > 0, 1, 0),
+      dm_comp_ieg_edu_hs     = ifelse(comp_ieg_edu_hs > 0, 1, 0),
+      dm_comp_ieg_edu_ms     = ifelse(comp_ieg_edu_ms > 0, 1, 0),
+      dm_comp_ieg_edu_ls     = ifelse(comp_ieg_edu_ls > 0, 1, 0),
+      dbxr2011_comp_edu1     = log(0.01 + dbxr2011_comp_edu),
+      dbxr2011_comp_ieg_edu_hs1 = log(0.01 + dbxr2011_comp_ieg_edu_hs),
+      dbxr2011_comp_ieg_edu_ms1 = log(0.01 + dbxr2011_comp_ieg_edu_ms),
+      dbxr2011_comp_ieg_edu_ls1 = log(0.01 + dbxr2011_comp_ieg_edu_ls),
+      gpw_sum                = gpw_ip_sum / 100000,
+      shr_neversch_6_24      = shr_neversch_6_24 * 100,
+      GID_2                  = ifelse(is.na(GID_2), iso2code, GID_2)
+    )
+  
+  # Define the estimation sample 
+  reg_obs <- feols(
+    shr_neversch_6_24 ~ aid_complete_edu +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data = reg_df
+  )
+  
+  # Now theinterractions models on the same sample
+  
+  reg_ind3 <- feols(
+    shr_neversch_6_24 ~
+      comp_ieg_edu_hs + comp_ieg_edu_ms + comp_ieg_edu_ls +
+      I(comp_ieg_edu_hs*comp_ieg_edu_ms) +
+      I(comp_ieg_edu_hs*comp_ieg_edu_ls) +
+      I(comp_ieg_edu_ms*comp_ieg_edu_ls) +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data   = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  # Extract coefs (clustered) and keep only terms you care about
+  keep_terms <- names(var_names)
+  
+  out <- rbindlist(list(
+    extract_coefs(reg_ind3, distance, "Interactions")
+  ), use.names = TRUE, fill = TRUE)
+  
+  out <- out[term %in% keep_terms]
+  out[, term_label := unname(var_names[term])]
+  out[]
+}
+
+### Run regressions ---------------------------------------
+estimates_dt <- rbindlist(lapply(distances, run_reg2), use.names = TRUE, fill = TRUE)
+
+### Plots for interactions ----------------------------------------------
+# ensure ordered facets
+facet_order <- c("HS", "MS", "LS", "HS × MS", "HS × LS", "MS × LS")
+estimates_dt[, term_label := factor(trimws(as.character(term_label)), levels = facet_order)]
+estimates_dt <- estimates_dt[!is.na(term_label)]
+
+inter_plot2 <- ggplot(
+  estimates_dt[order(distance)],
+  aes(x = distance, y = estimate, 
+      colour = term_label, 
+      group = term_label, 
+      shape = term_label
+  )
+) +
+  geom_hline(yintercept = 0) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 2) +
+  geom_errorbar(
+    aes(ymin = conf_low, ymax = conf_high),
+    width = 0.6,  
+    linewidth = 0.6
+  ) +
+  scale_x_reverse(breaks = sort(unique(estimates_dt$distance))) +
+  scale_colour_manual(values = cb_palette, drop = FALSE) +
+  facet_wrap(~ term_label, scales = "free_y", ncol = 3) +
+  labs(
+    x = "Buffer radius (km)",
+    y = "Coefficient estimate (clustered SE; 95% CI)",
+    colour= "Colour",
+    shape = "Type"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    legend.text = element_text(size = 20),
+    axis.text.x = element_text(size = 20),
+    axis.text.y = element_text(size = 20),
+    axis.title = element_text(size = 22, face = "bold"),
+    strip.text = element_text(size = 20, face = "bold"),
+    panel.border = element_rect(linewidth = 0.3)
+  )
+
+inter_plot2
+
+ggsave(filename = file.path(figure_dir, "coefPlot_ccx.png"),
+       plot = inter_plot2, width = 14, height = 8, dpi = 600)
+
+
+rm(inter_plot2,estimates_dt,run_reg2)
+
+
+
+#  Disbursement  -----------------------------------------------------------------
+## Regressions Column 1 and 2 of Paper -----------------------------------
+
+run_reg1 <- function(distance) {
+  data_file <- file.path(data_dir, paste0("data_", distance, "km.csv.gz"))
+  reg_df <- fread(data_file)
+  
+  reg_df <- reg_df |>
+    mutate(
+      dm_comp_aid_edu        = ifelse(aid_complete_edu > 0, 1, 0),
+      dm_comp_ieg_edu_hs     = ifelse(comp_ieg_edu_hs > 0, 1, 0),
+      dm_comp_ieg_edu_ms     = ifelse(comp_ieg_edu_ms > 0, 1, 0),
+      dm_comp_ieg_edu_ls     = ifelse(comp_ieg_edu_ls > 0, 1, 0),
+      dbxr2011_comp_edu1     = log(0.01 + dbxr2011_comp_edu),
+      dbxr2011_comp_ieg_edu_hs1 = log(0.01 + dbxr2011_comp_ieg_edu_hs),
+      dbxr2011_comp_ieg_edu_ms1 = log(0.01 + dbxr2011_comp_ieg_edu_ms),
+      dbxr2011_comp_ieg_edu_ls1 = log(0.01 + dbxr2011_comp_ieg_edu_ls),
+      gpw_sum                = gpw_ip_sum / 100000,
+      shr_neversch_6_24      = shr_neversch_6_24 * 100,
+      GID_2                  = ifelse(is.na(GID_2), iso2code, GID_2)
+    )
+  
+  # Define the estimation sample 
+  reg_obs <- feols(
+    shr_neversch_6_24 ~  dbxr2011_comp_edu1 +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data = reg_df
+  )
+  
+  # Now the three models on the same sample
+  reg_ind1 <- feols(
+    shr_neversch_6_24 ~  dbxr2011_comp_edu1 +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data   = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  reg_ind2 <- feols(
+    shr_neversch_6_24 ~ dbxr2011_comp_ieg_edu_hs1 +
+      dbxr2011_comp_ieg_edu_ms1 + dbxr2011_comp_ieg_edu_ls1 + 
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data   = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  # Extract coefs (clustered) and keep only terms you care about
+  keep_terms <- names(var_names)
+  
+  out <- rbindlist(list(
+    extract_coefs(reg_ind1, distance, "Edu. aid dummy"),
+    extract_coefs(reg_ind2, distance, "Management Rating")
+  ), use.names = TRUE, fill = TRUE)
+  
+  out <- out[term %in% keep_terms]
+  out[, term_label := unname(var_names[term])]
+  out[]
+}
+
+
+### Run regressions -------------------------------------------------
+estimates_dt <- rbindlist(lapply(distances, run_reg1), use.names = TRUE, fill = TRUE)
+
+
+### Plot regressions ----------------------------------------------------------
+
+# ensure ordered facets
+facet_order <- c("ln(Value Edu.)","ln(HS)", "ln(MS)", "ln(LS)", "ln(HS × MS)", "ln(HS × LS)", "ln(MS × LS)")
+estimates_dt[, term_label := factor(trimws(as.character(term_label)), levels = facet_order)]
+estimates_dt <- estimates_dt[!is.na(term_label)]
+
+
+# color-blind–safe palette (Okabe–Ito)
+cb_palette <- c(
+  "ln(HS)"      = "#0072B2",
+  "ln(MS)"      = "#009E73",
+  "ln(LS)"      = "#E69F00",
+  "ln(HS × MS)" = "#CC79A7",
+  "ln(HS × LS)" = "#56B4E9",
+  "ln(MS × LS)" = "#D55E00"
+)
+
+inter_plot1 <- ggplot(
+  estimates_dt[order(distance)],
+  aes(x = distance, y = estimate, 
+      colour = term_label,
+      group = model, 
+      linetype = model, 
+      shape = model)
+) +
+  geom_hline(yintercept = 0) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 2) +
+  geom_errorbar(
+    aes(ymin = conf_low, ymax = conf_high),
+    width = 0.6,       # horizontal cap width (in x units, here km)
+    linewidth = 0.6
+  ) +
+  scale_x_reverse(breaks = sort(unique(estimates_dt$distance))) +
+  scale_colour_manual(values = cb_palette, drop = FALSE) +
+  facet_wrap(~ term_label, scales = "free_y", ncol = 2) +
+  labs(
+    x = "Buffer radius (km)",
+    y = "Coefficient estimate (clustered SE; 95% CI)",
+    colour= "Colour",
+    linetype = "Specification",
+    shape = "Specification",
+    fill = "Specification"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    legend.text = element_text(size = 20),
+    axis.text.x = element_text(size = 20),
+    axis.text.y = element_text(size = 20),
+    axis.title = element_text(size = 22, face = "bold"),
+    strip.text = element_text(size = 20, face = "bold"),
+    panel.border = element_rect(linewidth = 0.3)
+  )
+
+inter_plot1
+
+# save plots
+ggsave(filename = file.path(figure_dir, "coefPlot_db.png"),
+       plot = inter_plot1, width = 14, height = 8, dpi = 600)
+
+rm(inter_plot1,estimates_dt,run_reg1)
+
+## Interactions Regression Column (3) of Paper -----------------------------------------------
+
+run_reg2 <- function(distance) {
+  data_file <- file.path(data_dir, paste0("data_", distance, "km.csv.gz"))
+  reg_df <- fread(data_file)
+  
+  reg_df <- reg_df |>
+    mutate(
+      dm_comp_aid_edu        = ifelse(aid_complete_edu > 0, 1, 0),
+      dm_comp_ieg_edu_hs     = ifelse(comp_ieg_edu_hs > 0, 1, 0),
+      dm_comp_ieg_edu_ms     = ifelse(comp_ieg_edu_ms > 0, 1, 0),
+      dm_comp_ieg_edu_ls     = ifelse(comp_ieg_edu_ls > 0, 1, 0),
+      dbxr2011_comp_edu1     = log(0.01 + dbxr2011_comp_edu),
+      dbxr2011_comp_ieg_edu_hs1 = log(0.01 + dbxr2011_comp_ieg_edu_hs),
+      dbxr2011_comp_ieg_edu_ms1 = log(0.01 + dbxr2011_comp_ieg_edu_ms),
+      dbxr2011_comp_ieg_edu_ls1 = log(0.01 + dbxr2011_comp_ieg_edu_ls),
+      gpw_sum                = gpw_ip_sum / 100000,
+      shr_neversch_6_24      = shr_neversch_6_24 * 100,
+      GID_2                  = ifelse(is.na(GID_2), iso2code, GID_2)
+    )
+  
+  # Define the estimation sample 
+  reg_obs <- feols(
+    shr_neversch_6_24 ~  dbxr2011_comp_edu1 +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data = reg_df
+  )
+  
+  # Now theinterractions models on the same sample
+  
+  reg_ind3 <- feols(
+    shr_neversch_6_24 ~ dbxr2011_comp_ieg_edu_hs1 + 
+      dbxr2011_comp_ieg_edu_ms1 + dbxr2011_comp_ieg_edu_ls1 +
+      I(dbxr2011_comp_ieg_edu_hs1*dbxr2011_comp_ieg_edu_ms1) +
+      I(dbxr2011_comp_ieg_edu_hs1*dbxr2011_comp_ieg_edu_ls1) +
+      I(dbxr2011_comp_ieg_edu_ms1*dbxr2011_comp_ieg_edu_ls1) +
+      conflict_5y_n + I(conflict_5y_n == 0) +
+      gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+    | DHSYEAR + GID_2,
+    data   = reg_df,
+    subset = obs(reg_obs)
+  )
+  
+  # Extract coefs (clustered) and keep only terms you care about
+  keep_terms <- names(var_names)
+  
+  out <- rbindlist(list(
+    extract_coefs(reg_ind3, distance, "Interactions")
+  ), use.names = TRUE, fill = TRUE)
+  
+  out <- out[term %in% keep_terms]
+  out[, term_label := unname(var_names[term])]
+  out[]
+}
+
+### Run regressions ---------------------------------------
+estimates_dt <- rbindlist(lapply(distances, run_reg2), use.names = TRUE, fill = TRUE)
+
+### Plots for interactions ----------------------------------------------
+# ensure ordered facets
+facet_order <- c("ln(HS)", "ln(MS)", "ln(LS)", "ln(HS × MS)", "ln(HS × LS)", "ln(MS × LS)")
+estimates_dt[, term_label := factor(trimws(as.character(term_label)), levels = facet_order)]
+estimates_dt <- estimates_dt[!is.na(term_label)]
+
+inter_plot2 <- ggplot(
+  estimates_dt[order(distance)],
+  aes(x = distance, y = estimate, 
+      colour = term_label, 
+      group = term_label, 
+      shape = term_label
+  )
+) +
+  geom_hline(yintercept = 0) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 2) +
+  geom_errorbar(
+    aes(ymin = conf_low, ymax = conf_high),
+    width = 0.6,  
+    linewidth = 0.6
+  ) +
+  scale_x_reverse(breaks = sort(unique(estimates_dt$distance))) +
+  scale_colour_manual(values = cb_palette, drop = FALSE) +
+  facet_wrap(~ term_label, scales = "free_y", ncol = 3) +
+  labs(
+    x = "Buffer radius (km)",
+    y = "Coefficient estimate (clustered SE; 95% CI)",
+    colour= "Colour",
+    shape = "Type"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    legend.text = element_text(size = 20),
+    axis.text.x = element_text(size = 20),
+    axis.text.y = element_text(size = 20),
+    axis.title = element_text(size = 22, face = "bold"),
+    strip.text = element_text(size = 20, face = "bold"),
+    panel.border = element_rect(linewidth = 0.3)
+  )
+
+inter_plot2
+
+ggsave(filename = file.path(figure_dir, "coefPlot_dbx.png"),
+       plot = inter_plot2, width = 14, height = 8, dpi = 600)
+
+
+
+rm(list = ls())
+
+
+
+
