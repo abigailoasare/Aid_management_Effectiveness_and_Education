@@ -28,7 +28,7 @@ run_analysis <- function(distance) {
       gpw_sum +
       sol_mean +
       pre_mean + tmp_mean + spei_mean +
-      av_age_mm + av_size_hh + shr_son_daughter 
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter 
     | DHSYEAR + GID_2,
     data = reg_df
   )
@@ -113,7 +113,7 @@ run_analysis <- function(distance) {
           gpw_sum,
         sol_mean,
         pre_mean + tmp_mean + spei_mean+
-          av_age_mm + av_size_hh + shr_son_daughter 
+          av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
       )
     | DHSYEAR +
       GID_2
@@ -157,7 +157,7 @@ run_analysis <- function(distance) {
              gpw_sum,
            sol_mean,
            pre_mean + tmp_mean + spei_mean+
-             av_age_mm + av_size_hh + shr_son_daughter 
+             av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
       )
     | DHSYEAR +
       GID_2
@@ -208,7 +208,7 @@ run_analysis <- function(distance) {
              gpw_sum,
            sol_mean,
            pre_mean + tmp_mean + spei_mean+
-             av_age_mm + av_size_hh + shr_son_daughter 
+             av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
       )
     | DHSYEAR +
       GID_2
@@ -260,7 +260,7 @@ run_analysis <- function(distance) {
           gpw_sum,
         sol_mean,
         pre_mean + tmp_mean + spei_mean+
-          av_age_mm + av_size_hh + shr_son_daughter 
+          av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
       )
     | DHSYEAR +
       GID_2
@@ -309,7 +309,7 @@ run_analysis <- function(distance) {
              gpw_sum,
            sol_mean,
            pre_mean + tmp_mean + spei_mean+
-             av_age_mm + av_size_hh + shr_son_daughter 
+             av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
       )
     | DHSYEAR +
       GID_2
@@ -360,7 +360,7 @@ run_analysis <- function(distance) {
              gpw_sum,
            sol_mean,
            pre_mean + tmp_mean + spei_mean+
-             av_age_mm + av_size_hh + shr_son_daughter 
+             av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
       )
     | DHSYEAR +
       GID_2
@@ -409,7 +409,7 @@ run_analysis <- function(distance) {
       gpw_sum +
       sol_mean +
       pre_mean + tmp_mean + spei_mean+
-      av_age_mm + av_size_hh + shr_son_daughter 
+      av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
     | DHSYEAR +
       GID_2
     , data = reg_df
@@ -497,7 +497,7 @@ run_analysis <- function(distance) {
           gpw_sum,
         sol_mean,
         pre_mean + tmp_mean + spei_mean+
-          av_age_mm + av_size_hh + shr_son_daughter 
+          av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
       )
     | DHSYEAR +
       GID_2
@@ -547,7 +547,7 @@ run_analysis <- function(distance) {
              gpw_sum,
            sol_mean,
            pre_mean + tmp_mean + spei_mean+
-             av_age_mm + av_size_hh + shr_son_daughter 
+             av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
       )
     | DHSYEAR +
       GID_2
@@ -599,7 +599,7 @@ run_analysis <- function(distance) {
              gpw_sum,
            sol_mean,
            pre_mean + tmp_mean + spei_mean+
-             av_age_mm + av_size_hh + shr_son_daughter 
+             av_age_mm + av_age_head + av_size_hh + shr_son_daughter  
       )
     | DHSYEAR +
       GID_2
@@ -647,6 +647,7 @@ for (distance in distances) {
 }
 
 rm(list = ls())
+
 
 
 
