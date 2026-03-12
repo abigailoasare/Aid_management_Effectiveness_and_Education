@@ -14,7 +14,7 @@
 - The 03_dhs_aid_r4r folder contains all scripts for merging DHS household data, aid, and all the spatial variables.
 - The 04_reg_scripts folder consists of a regression script used to produce the tables in the main paper.
 - The 05_maps folder contains scripts used to produce the maps in the paper.
-- The 06_other folder contains scripts used to marginal effects and summary statistics in the paper.
+- The 06_other folder contains scripts used to marginal effects, summary statistics in the paper as well as different buffer size plots in the supplementary appendix (Figure A.1 to A.3 and Table A.2 to A.3)
     
 ## Contact:
   - abigail.asare@uol.de
