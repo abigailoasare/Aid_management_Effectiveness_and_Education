@@ -4,8 +4,8 @@
 - This folder contains data for data preparation.
 -  **Note:** _Due to confidentiality, the raw data cannot be made available_.
 -  However, the datasets can be downloaded from the respective data websites:
-    - World Bank dataset: Accessible at \url{https://www.aiddata.org/data/world-bank-geocoded-research-release-level-1-v1-4-2}.
-    - DHS survey dataset: Both the survey and GPS data can be downloaded from \url{https://dhsprogram.com/data/available-datasets.cfm}.
+    - World Bank dataset: Accessible at https://www.aiddata.org/data/world-bank-geocoded-research-release-level-1-v1-4-2.
+    - DHS survey dataset: Both the survey and GPS data can be downloaded from https://dhsprogram.com/data/available-datasets.cfm.
 
 ## Rcodes folder
 - The 01_aid_data_prep folder contains scripts to clean the aid data and generate variables.
@@ -15,9 +15,6 @@
 - The 04_reg_scripts folder consists of a regression script used to produce the tables in the main paper.
 - The 05_maps folder contains scripts used to produce the maps in the paper.
 - The 06_other folder contains scripts used to marginal effects and summary statistics in the paper.
-
-## Maps:
-- The Maps folder contains all PNG maps in the paper.
     
 ## Contact:
   - abigail.asare@uol.de
