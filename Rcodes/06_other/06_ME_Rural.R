@@ -1,3 +1,5 @@
+# Authors: Abigail O. Asare
+# Date:12/03/2026
 # This script is used for calculating the Marginal effects using
 # Equation (5)-(7)
 # See main table for the respective coefficients
@@ -46,15 +48,10 @@ reg_df <- reg_df %>%
 
 reg_obs = feols(
   shr_neversch_6_24 ~  aid_complete_edu +
-    conflict_5y_n +
-    I(conflict_5y_n == 0) +
-    gpw_sum +
-    sol_mean +
-    pre_mean + tmp_mean + spei_mean +
-    av_age_mm + av_size_hh + shr_son_daughter
-  | DHSYEAR +
-    GID_2
-  ,
+    conflict_5y_n + I(conflict_5y_n == 0) +
+    gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+    av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+  | DHSYEAR + GID_2,
   data = reg_df
 )
 
@@ -79,15 +76,10 @@ reg_rr <- sample_dhs %>%
 
 reg_obs = feols(
   shr_neversch_6_24 ~  aid_complete_edu +
-    conflict_5y_n +
-    I(conflict_5y_n == 0) +
-    gpw_sum +
-    sol_mean +
-    pre_mean + tmp_mean + spei_mean +
-    av_age_mm + av_size_hh + shr_son_daughter
-  | DHSYEAR +
-    GID_2
-  ,
+    conflict_5y_n + I(conflict_5y_n == 0) +
+    gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+    av_age_mm + av_age_head + av_size_hh + shr_son_daughter
+  | DHSYEAR + GID_2,
   data = reg_rr
 )
 
@@ -176,17 +168,17 @@ combi_me_ind <- model_sum |>
   dplyr::mutate(
     meff_hs = ifelse(
       dm_comp_ieg_edu_hs >= 1,
-      0 - 3.600 * dm_comp_ieg_edu_ms - 5.828 * dm_comp_ieg_edu_ls,
+      0 - 3.582 * dm_comp_ieg_edu_ms - 5.844 * dm_comp_ieg_edu_ls,
       "--"
     ),
     meff_ms = ifelse(
       dm_comp_ieg_edu_ms >= 1,
-      1.548 - 3.600 * dm_comp_ieg_edu_hs - 4.951 * dm_comp_ieg_edu_ls,
+      1.515 - 3.582 * dm_comp_ieg_edu_hs - 5.006 * dm_comp_ieg_edu_ls,
       "--"
     ),
     meff_ls = ifelse(
       dm_comp_ieg_edu_ls >= 1,
-      9.213 - 5.828 * dm_comp_ieg_edu_hs - 4.951 * dm_comp_ieg_edu_ms,
+      9.225 - 5.844 * dm_comp_ieg_edu_hs - 5.006 * dm_comp_ieg_edu_ms,
       "--"
     )
   ) |>
@@ -222,7 +214,7 @@ me_ind_table <- xtable(combi_me_ind_rd,
                        caption = "Indicator Marginal Effects")
 
 # Save the LaTeX table to the file
-print(me_ind_table, file = file.path(table_dir, "ME_ind_rr.tex"))
+print(me_ind_table, file = file.path(table_dir, "ME_ind_rr-R1.tex"))
 
 
 # 2_Counts Marginal Effects ---------------------------------------------------
@@ -263,17 +255,17 @@ combi_me_counts <- model_sum |>
   dplyr::mutate(
     meff_hs = ifelse(
       comp_ieg_edu_hs >= 1,
-      -0.3317 - 0.1660 * comp_ieg_edu_ms - 0.7359 * comp_ieg_edu_ls,
+      -0.3291 - 0.1640 * comp_ieg_edu_ms - 0.7466 * comp_ieg_edu_ls,
       "--"
     ),
     meff_ms = ifelse(
       comp_ieg_edu_ms >= 1,
-      0.3442 - 0.1660 * comp_ieg_edu_hs - 0.3125 * comp_ieg_edu_ls,
+      0.3329 - 0.1640 * comp_ieg_edu_hs - 0.3058 * comp_ieg_edu_ls,
       "--"
     ),
     meff_ls = ifelse(
       comp_ieg_edu_ls >= 1,
-      4.332 - 0.7359 * comp_ieg_edu_hs - 0.3125 * comp_ieg_edu_ms,
+      4.332 - 0.7466 * comp_ieg_edu_hs - 0.3058 * comp_ieg_edu_ms,
       "--"
     )
   ) |>
@@ -311,7 +303,7 @@ me_counts_table <- xtable(combi_me_counts_rd,
                           caption = "Counts Marginal Effects")
 
 # Save the LaTeX table to the file
-print(me_counts_table, file = file.path(table_dir, "ME_counts_rr.tex"))
+print(me_counts_table, file = file.path(table_dir, "ME_counts_rr-R1.tex"))
 
 
 # 3_Disbursement Marginal Effects ---------------------------------------------------
@@ -325,7 +317,7 @@ print(me_counts_table, file = file.path(table_dir, "ME_counts_rr.tex"))
 # coefficients
 coeff_disb <- data.frame(
   term = c("alpha1", "alpha2", "alpha3", "alpha4", "alpha5", "alpha6"),
-  value = c(-0.1120, 0, 0.3616,-0.0081,-0.0151,-0.0129)  # Zero for insignificant coefficients
+  value = c(-0.1121, 0, 0.3612,-0.0080,-0.0151,-0.0131)  # Zero for insignificant coefficients
 )
 
 # HS Marginal Effects
@@ -374,4 +366,7 @@ me_disb_table <-  xtable(me_disb_table,
                          caption = "Disbursement Marginal Effects")
 
 # Save the LaTeX table to the file
-print(me_disb_table , file = file.path(table_dir, "ME_disb_rr.tex"))
+print(me_disb_table , file = file.path(table_dir, "ME_disb_rr-R1.tex"))
+
+
+rm(list = ls())
