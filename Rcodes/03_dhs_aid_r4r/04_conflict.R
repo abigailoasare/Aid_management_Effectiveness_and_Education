@@ -22,7 +22,7 @@ source("./00_setup.R")
 
 # Load conflict data set into R -------------------------------------------------
 
-gedevent<- read_csv("./data-raw/conflict/GEDEvent_v22_1.csv")
+gedevent<- read_csv("./data-raw/conflict/GEDEvent_v25_1.csv")
 
 
 ## keep variables
