@@ -328,6 +328,23 @@ run_analysis <- function(distance) {
   #   filter(n>1) |> 
   #   distinct(DHSID, .keep_all = T)  
   
+ # no duplicates
+  
+  dhs_full <- dhs |>
+    sf::st_drop_geometry() |>
+    dplyr::select(DHSID, DHSCC, DHSYEAR,version_GE, DHSCLUST) |> 
+    dplyr::left_join(dhs_link, by = c("DHSCC" = "iso2code", "version_GE")) |>
+    dplyr::left_join(
+      dhs_survey,
+      by = c(
+        "DHSCC" = "dhs_dhscc",
+        "version" = "dhs_version_pr",
+        "DHSCLUST" = "dhs_clust"
+      )
+    ) |> 
+    dplyr::select(-version_GE, -DHSCC, -DHSCLUST, -dhs_year) 
+  
+  
   
   
   ## Generate shares ----------------------------------------------------
@@ -335,11 +352,49 @@ run_analysis <- function(distance) {
   dhs_shr <- dhs_full |>
     dplyr::group_by(DHSID) |> 
     dplyr::mutate(
+      #6-24years
       shr_neversch_6_24 = num_ppl_neversch_6_24 / num_schoolage_6_24,
       shr_nosch_6_24 = num_ppl_nosch_6_24 / num_schoolage_6_24,
       shr_repeatsch_6_24 = num_ppl_repeatsch_6_24 / num_schoolage_6_24,
       shr_dropsch_6_24 = num_ppl_dropsch_6_24 / num_schoolage_6_24,
-      shr_in_sch = num_ppl_in_sch / num_schoolage_6_24,
+      shr_in_sch_6_24 = num_ppl_in_sch_6_24 / num_schoolage_6_24,
+      #6-9years
+      shr_neversch_6_9 = num_ppl_neversch_6_9 / num_schoolage_6_9,
+      shr_nosch_6_9 = num_ppl_nosch_6_9 / num_schoolage_6_9,
+      shr_repeatsch_6_9 = num_ppl_repeatsch_6_9 / num_schoolage_6_9,
+      shr_dropsch_6_9 = num_ppl_dropsch_6_9 / num_schoolage_6_9,
+      shr_in_sch_6_9 = num_ppl_in_sch_6_9 / num_schoolage_6_9,
+      #10-15years
+      shr_neversch_10_15 = num_ppl_neversch_10_15 / num_schoolage_10_15,
+      shr_nosch_10_15 = num_ppl_nosch_10_15 / num_schoolage_10_15,
+      shr_repeatsch_10_15 = num_ppl_repeatsch_10_15 / num_schoolage_10_15,
+      shr_dropsch_10_15 = num_ppl_dropsch_10_15 / num_schoolage_10_15,
+      shr_in_sch_10_15 = num_ppl_in_sch_10_15 / num_schoolage_10_15,
+      #16-18years
+      shr_neversch_16_18 = num_ppl_neversch_16_18 / num_schoolage_16_18,
+      shr_nosch_16_18 = num_ppl_nosch_16_18 / num_schoolage_16_18,
+      shr_repeatsch_16_18 = num_ppl_repeatsch_16_18 / num_schoolage_16_18,
+      shr_dropsch_16_18 = num_ppl_dropsch_16_18 / num_schoolage_16_18,
+      shr_in_sch_16_18 = num_ppl_in_sch_16_18 / num_schoolage_16_18,
+      #18-24years
+      shr_neversch_18_24 = num_ppl_neversch_18_24 / num_schoolage_18_24,
+      shr_nosch_18_24 = num_ppl_nosch_18_24 / num_schoolage_18_24,
+      shr_repeatsch_18_24 = num_ppl_repeatsch_18_24 / num_schoolage_18_24,
+      shr_dropsch_18_24 = num_ppl_dropsch_18_24 / num_schoolage_18_24,
+      shr_in_sch_18_24= num_ppl_in_sch_18_24 / num_schoolage_18_24,
+      #10-24years
+      shr_neversch_10_24 = num_ppl_neversch_10_24 / num_schoolage_10_24,
+      shr_nosch_10_24 = num_ppl_nosch_10_24 / num_schoolage_10_24,
+      shr_repeatsch_10_24 = num_ppl_repeatsch_10_24 / num_schoolage_10_24,
+      shr_dropsch_10_24 = num_ppl_dropsch_10_24 / num_schoolage_10_24,
+      shr_in_sch_10_24= num_ppl_in_sch_10_24 / num_schoolage_10_24,
+      #15-24years
+      shr_neversch_15_24 = num_ppl_neversch_15_24 / num_schoolage_15_24,
+      shr_nosch_15_24 = num_ppl_nosch_15_24 / num_schoolage_15_24,
+      shr_repeatsch_15_24 = num_ppl_repeatsch_15_24 / num_schoolage_15_24,
+      shr_dropsch_15_24 = num_ppl_dropsch_15_24 / num_schoolage_15_24,
+      shr_in_sch_10_24 = num_ppl_in_sch_10_24 / num_schoolage_10_24,
+      # cluster Variables
       shr_sex_headm = num_ppl_sex_headm / num_ppl,
       shr_sex_mem = num_ppl_sex_mem / num_ppl,
       shr_son_daughter = num_ppl_son_daughter / num_ppl,
