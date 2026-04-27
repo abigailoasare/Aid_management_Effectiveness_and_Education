@@ -1,5 +1,5 @@
 # Authors: Abigail O. Asare
-# Date:12/03/2026
+# Date:26/04/2026
 # This script is used for calculating the Marginal effects using
 # Equation (5)-(7)
 # See main table for the respective coefficients
@@ -27,7 +27,7 @@ reg_df <- fread("./data-r4r/data_50km.csv.gz")
 
 # Generate dummies for IEG
 
-reg_df <- reg_df %>%
+reg_df <- reg_df |>
   dplyr::mutate(
     dm_comp_aid_edu = ifelse(aid_complete_edu > 0, 1, 0),
     dm_comp_ieg_edu_hs = ifelse(comp_ieg_edu_hs > 0, 1, 0),
@@ -37,7 +37,7 @@ reg_df <- reg_df %>%
     dbxr2011_comp_ieg_edu_hs1 = log(0.01 + dbxr2011_comp_ieg_edu_hs),
     dbxr2011_comp_ieg_edu_ms1 = log(0.01 + dbxr2011_comp_ieg_edu_ms),
     dbxr2011_comp_ieg_edu_ls1 = log(0.01 + dbxr2011_comp_ieg_edu_ls),
-  ) %>%
+  ) |>
   mutate(
     gpw_sum = gpw_ip_sum / 100000,
     shr_neversch_6_24 = shr_neversch_6_24 * 100,
@@ -70,7 +70,7 @@ etable(
 sample_dhs <- reg_df[unlist(reg_obs$obs_selection),]
 
 # Split Sample for Urban Clusters ----------------------------------------------
-reg_rr <- sample_dhs %>%
+reg_rr <- sample_dhs |>
   dplyr::filter(area_rural == 1)
 
 
@@ -129,6 +129,29 @@ model_sum <- cbind(selected_column, regression_variables)
 # 1_Indicator Marginal Effects ---------------------------------------------------
 
 
+
+# Indicator Marginal Effects ---------------------------------------------------
+reg_ind = feols(
+  shr_neversch_6_24 ~ dm_comp_ieg_edu_hs*dm_comp_ieg_edu_ms +
+    dm_comp_ieg_edu_hs*dm_comp_ieg_edu_ls +
+    dm_comp_ieg_edu_ms*dm_comp_ieg_edu_ls +
+    conflict_5y_n + I(conflict_5y_n == 0) +
+    gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+    av_age_mm + av_age_head + av_size_hh + shr_son_daughter 
+  | DHSYEAR +
+    GID_2, 
+  data = reg_rr,
+  subset = obs(reg_obs)
+)
+
+etable(
+  reg_ind,
+  cluster = ~ DHSID,
+  signif.code = c("*" = .1, "**" = .05,  "***" = 0.01)
+)
+
+
+
 ## Unique combinations and Marginal Effects ------------------------------------
 
 combi_me_ind <- model_sum |>
@@ -164,30 +187,68 @@ combi_me_ind <- model_sum |>
       "L"
     ),
     n_percent = (n / sum(n)) * 100
-  ) |>
-  dplyr::mutate(
-    meff_hs = ifelse(
+  )
+
+
+## 1)  clustered coefs + p-values, zero-out insignificant ones ---------
+alpha <- 0.10
+
+ct <- summary(reg_ind, cluster = ~ DHSID)$coeftable
+# ct is a matrix with columns: Estimate, Std. Error, t value, Pr(>|t|)
+
+coefs_sig <- setNames(
+  ifelse(ct[, "Pr(>|t|)"] < alpha, ct[, "Estimate"], 0),
+  rownames(ct)
+)
+
+# small helper to safely fetch a coef by name, default 0 if absent
+getc <- function(nm) if (nm %in% names(coefs_sig)) coefs_sig[[nm]] else 0
+
+## 2) Mapping specific coefficients -----------------------------------
+b_hs    <- getc("dm_comp_ieg_edu_hs")
+b_ms    <- getc("dm_comp_ieg_edu_ms")
+b_ls    <- getc("dm_comp_ieg_edu_ls")
+
+# interaction names in fixest use ":"; order is usually the same
+b_hs_ms <- getc("dm_comp_ieg_edu_hs:dm_comp_ieg_edu_ms"); if (b_hs_ms == 0) b_hs_ms <- getc("dm_comp_ieg_edu_ms:dm_comp_ieg_edu_hs")
+b_hs_ls <- getc("dm_comp_ieg_edu_hs:dm_comp_ieg_edu_ls"); if (b_hs_ls == 0) b_hs_ls <- getc("dm_comp_ieg_edu_ls:dm_comp_ieg_edu_hs")
+b_ms_ls <- getc("dm_comp_ieg_edu_ms:dm_comp_ieg_edu_ls"); if (b_ms_ls == 0) b_ms_ls <- getc("dm_comp_ieg_edu_ls:dm_comp_ieg_edu_ms")
+
+## 3) Add marginal effects to comb table --------------------------------
+
+combi_me_ind <- combi_me_ind |>
+  mutate(
+    meff_hs = if_else(
       dm_comp_ieg_edu_hs >= 1,
-      0 - 3.582 * dm_comp_ieg_edu_ms - 5.844 * dm_comp_ieg_edu_ls,
-      "--"
+      # ME of increasing HS, holding others at their combo values:
+      b_hs + (b_hs_ms * dm_comp_ieg_edu_ms) + (b_hs_ls * dm_comp_ieg_edu_ls),
+      NA_real_
     ),
-    meff_ms = ifelse(
+    meff_ms = if_else(
       dm_comp_ieg_edu_ms >= 1,
-      1.515 - 3.582 * dm_comp_ieg_edu_hs - 5.006 * dm_comp_ieg_edu_ls,
-      "--"
+      b_ms + (b_hs_ms * dm_comp_ieg_edu_hs) + (b_ms_ls * dm_comp_ieg_edu_ls),
+      NA_real_
     ),
-    meff_ls = ifelse(
+    meff_ls = if_else(
       dm_comp_ieg_edu_ls >= 1,
-      9.225 - 5.844 * dm_comp_ieg_edu_hs - 5.006 * dm_comp_ieg_edu_ms,
-      "--"
+      b_ls + (b_hs_ls * dm_comp_ieg_edu_hs) + (b_ms_ls * dm_comp_ieg_edu_ms),
+      NA_real_
     )
-  ) |>
+  )
+# "--" instead of NA, coerce to character:
+combi_me_ind <- combi_me_ind |>
+  dplyr::mutate(
+    across(c(meff_hs, meff_ms, meff_ls),
+           ~ ifelse(is.na(.x), "--", formatC(.x, digits = 2, format = "f")))
+  )|>
   dplyr::arrange(-n_percent) |>
-  dplyr::mutate(cumsum_n = cumsum(n_percent),)
+  dplyr::mutate(cumsum_n = cumsum(n_percent))
+
 
 # select relevant columns
 
 combi_me_ind_rd <- combi_me_ind |>
+  dplyr::mutate(n_percent= round(n_percent, 2)) |> 
   dplyr::select(
     dm_comp_ieg_edu_hs,
     dm_comp_ieg_edu_ms,
@@ -214,15 +275,39 @@ me_ind_table <- xtable(combi_me_ind_rd,
                        caption = "Indicator Marginal Effects")
 
 # Save the LaTeX table to the file
-print(me_ind_table, file = file.path(table_dir, "ME_ind_rr-R1.tex"))
+print(me_ind_table, file = file.path(table_dir, "ME_ind_rr.tex"))
 
 
 # 2_Counts Marginal Effects ---------------------------------------------------
 
+reg_counts = feols(
+  shr_neversch_6_24 ~ comp_ieg_edu_hs*comp_ieg_edu_ms +
+    comp_ieg_edu_hs*comp_ieg_edu_ls +
+    comp_ieg_edu_ms*comp_ieg_edu_ls +
+    conflict_5y_n + I(conflict_5y_n == 0) +
+    gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+    av_age_mm + av_age_head + av_size_hh + shr_son_daughter 
+  | DHSYEAR +
+    GID_2, 
+  data = reg_rr,
+  subset = obs(reg_obs)
+)
+
+etable(
+  reg_counts,
+  cluster = ~ DHSID,
+  signif.code = c("*" = .1, "**" = .05,  "***" = 0.01)
+)
+
+
 
 ## Unique combinations and Marginal Effects ------------------------------------
+
 combi_me_counts <- model_sum |>
-  dplyr::select(comp_ieg_edu_hs, comp_ieg_edu_ms, comp_ieg_edu_ls, DHSID) |>
+  dplyr::select(comp_ieg_edu_hs,
+                comp_ieg_edu_ms,
+                comp_ieg_edu_ls,
+                DHSID) |>
   group_by(DHSID) |>
   dplyr::summarise(across(
     c(comp_ieg_edu_hs, comp_ieg_edu_ms, comp_ieg_edu_ls),
@@ -251,31 +336,68 @@ combi_me_counts <- model_sum |>
       "L"
     ),
     n_percent = (n / sum(n)) * 100
-  ) |>
-  dplyr::mutate(
-    meff_hs = ifelse(
-      comp_ieg_edu_hs >= 1,
-      -0.3291 - 0.1640 * comp_ieg_edu_ms - 0.7466 * comp_ieg_edu_ls,
-      "--"
-    ),
-    meff_ms = ifelse(
-      comp_ieg_edu_ms >= 1,
-      0.3329 - 0.1640 * comp_ieg_edu_hs - 0.3058 * comp_ieg_edu_ls,
-      "--"
-    ),
-    meff_ls = ifelse(
-      comp_ieg_edu_ls >= 1,
-      4.332 - 0.7466 * comp_ieg_edu_hs - 0.3058 * comp_ieg_edu_ms,
-      "--"
-    )
-  ) |>
-  dplyr::arrange(-n_percent) |>
-  dplyr::mutate(cumsum_n = cumsum(n_percent),)
+  )
 
-# select relevant columns and rows(based of Percentage_Frequency only > 1%)
-# Because we have 222 unique combination.
+
+## 1)  clustered coefs + p-values, zero-out insignificant ones ---------
+alpha <- 0.10
+
+ct <- summary(reg_counts, cluster = ~ DHSID)$coeftable
+# ct is a matrix with columns: Estimate, Std. Error, t value, Pr(>|t|)
+
+coefs_sig <- setNames(
+  ifelse(ct[, "Pr(>|t|)"] < alpha, ct[, "Estimate"], 0),
+  rownames(ct)
+)
+
+# small helper to safely fetch a coef by name, default 0 if absent
+getc <- function(nm) if (nm %in% names(coefs_sig)) coefs_sig[[nm]] else 0
+
+## 2) Mapping specific coefficients -----------------------------------
+b_hs    <- getc("comp_ieg_edu_hs")
+b_ms    <- getc("comp_ieg_edu_ms")
+b_ls    <- getc("comp_ieg_edu_ls")
+
+# interaction names in fixest use ":"; order is usually the same
+b_hs_ms <- getc("comp_ieg_edu_hs:comp_ieg_edu_ms"); if (b_hs_ms == 0) b_hs_ms <- getc("comp_ieg_edu_ms:comp_ieg_edu_hs")
+b_hs_ls <- getc("comp_ieg_edu_hs:comp_ieg_edu_ls"); if (b_hs_ls == 0) b_hs_ls <- getc("comp_ieg_edu_ls:comp_ieg_edu_hs")
+b_ms_ls <- getc("comp_ieg_edu_ms:comp_ieg_edu_ls"); if (b_ms_ls == 0) b_ms_ls <- getc("comp_ieg_edu_ls:comp_ieg_edu_ms")
+
+## 3) Add marginal effects to comb table --------------------------------
+
+combi_me_counts <- combi_me_counts |>
+  mutate(
+    meff_hs = if_else(
+      comp_ieg_edu_hs >= 1,
+      # ME of increasing HS, holding others at their combo values:
+      b_hs + (b_hs_ms * comp_ieg_edu_ms) + (b_hs_ls * comp_ieg_edu_ls),
+      NA_real_
+    ),
+    meff_ms = if_else(
+      comp_ieg_edu_ms >= 1,
+      b_ms + (b_hs_ms * comp_ieg_edu_hs) + (b_ms_ls * comp_ieg_edu_ls),
+      NA_real_
+    ),
+    meff_ls = if_else(
+      comp_ieg_edu_ls >= 1,
+      b_ls + (b_hs_ls * comp_ieg_edu_hs) + (b_ms_ls * comp_ieg_edu_ms),
+      NA_real_
+    )
+  )
+# "--" instead of NA, coerce to character:
+combi_me_counts <- combi_me_counts |>
+  dplyr::mutate(
+    across(c(meff_hs, meff_ms, meff_ls),
+           ~ ifelse(is.na(.x), "--", formatC(.x, digits = 2, format = "f")))
+  )|>
+  dplyr::arrange(-n_percent) |>
+  dplyr::mutate(cumsum_n = cumsum(n_percent))
+
+
+# select relevant columns
 
 combi_me_counts_rd <- combi_me_counts |>
+  dplyr::mutate(n_percent= round(n_percent, 2)) |> 
   dplyr::select(
     comp_ieg_edu_hs,
     comp_ieg_edu_ms,
@@ -286,7 +408,7 @@ combi_me_counts_rd <- combi_me_counts |>
     meff_ms,
     meff_ls
   ) |>
-  dplyr::rename(
+  rename(
     HS = comp_ieg_edu_hs,
     MS = comp_ieg_edu_ms,
     LS = comp_ieg_edu_ls,
@@ -295,7 +417,7 @@ combi_me_counts_rd <- combi_me_counts |>
     HS_Marginal_Effect = meff_hs,
     MS_Marginal_Effect = meff_ms,
     LS_Marginal_Effect = meff_ls
-  ) |>
+  )|>
   dplyr::filter(Percentage_Frequency > 1)
 
 ## Save----------------------------------------------------------------
@@ -303,28 +425,63 @@ me_counts_table <- xtable(combi_me_counts_rd,
                           caption = "Counts Marginal Effects")
 
 # Save the LaTeX table to the file
-print(me_counts_table, file = file.path(table_dir, "ME_counts_rr-R1.tex"))
+print(me_counts_table, file = file.path(table_dir, "ME_counts_rr.tex"))
 
 
 # 3_Disbursement Marginal Effects ---------------------------------------------------
 
-
-## Evaluation of Marginal Effects at the mean ------------------------------------
-#It is evaluated at the mean
-# mean values are reported only for non zero disbursements
-# They are already in logs (see main paper for means)
-
-# coefficients
-coeff_disb <- data.frame(
-  term = c("alpha1", "alpha2", "alpha3", "alpha4", "alpha5", "alpha6"),
-  value = c(-0.1121, 0, 0.3612,-0.0080,-0.0151,-0.0131)  # Zero for insignificant coefficients
+reg_db = feols(
+  shr_neversch_6_24 ~ dbxr2011_comp_ieg_edu_hs1*dbxr2011_comp_ieg_edu_ms1 +
+    dbxr2011_comp_ieg_edu_hs1*dbxr2011_comp_ieg_edu_ls1 +
+    dbxr2011_comp_ieg_edu_ms1*dbxr2011_comp_ieg_edu_ls1 +
+    conflict_5y_n + I(conflict_5y_n == 0) +
+    gpw_sum + sol_mean + pre_mean + tmp_mean + spei_mean +
+    av_age_mm + av_age_head + av_size_hh + shr_son_daughter 
+  | DHSYEAR +
+    GID_2, 
+  data = reg_rr,
+  subset = obs(reg_obs)
 )
 
+
+etable(
+  reg_db,
+  cluster = ~ DHSID,
+  signif.code = c("*" = .1, "**" = .05,  "***" = 0.01)
+)
+
+## 1)  clustered coefs + p-values, zero-out insignificant ones ---------
+alpha <- 0.10
+
+ct <- summary(reg_db, cluster = ~ DHSID)$coeftable
+# ct is a matrix with columns: Estimate, Std. Error, t value, Pr(>|t|)
+
+coefs_sig <- setNames(
+  ifelse(ct[, "Pr(>|t|)"] < alpha, ct[, "Estimate"], 0),
+  rownames(ct)
+)
+
+#fetch a coef by name, default 0 if absent
+getc <- function(nm) if (nm %in% names(coefs_sig)) coefs_sig[[nm]] else 0
+
+## 2) Mapping specific coefficients -----------------------------------
+b_hs    <- getc("dbxr2011_comp_ieg_edu_hs1")
+b_ms    <- getc("dbxr2011_comp_ieg_edu_ms1")
+b_ls    <- getc("dbxr2011_comp_ieg_edu_ls1")
+
+# interaction names in fixest use ":"; order is usually the same
+b_hs_ms <- getc("dbxr2011_comp_ieg_edu_hs1:dbxr2011_comp_ieg_edu_ms1"); if (b_hs_ms == 0) b_hs_ms <- getc("dbxr2011_comp_ieg_edu_ms1:dbxr2011_comp_ieg_edu_hs1")
+b_hs_ls <- getc("dbxr2011_comp_ieg_edu_hs1:dbxr2011_comp_ieg_edu_ls1"); if (b_hs_ls == 0) b_hs_ls <- getc("dbxr2011_comp_ieg_edu_ls1:dbxr2011_comp_ieg_edu_hs1")
+b_ms_ls <- getc("dbxr2011_comp_ieg_edu_ms1:dbxr2011_comp_ieg_edu_ls1"); if (b_ms_ls == 0) b_ms_ls <- getc("dbxr2011_comp_ieg_edu_ls1:dbxr2011_comp_ieg_edu_ms1")
+
+
+## Evaluation of Marginal Effects at the mean ------------------------------------
+# Means from statitics table 1
 # HS Marginal Effects
 calc_me_hs <- function(ms, ls, coeff) {
-  coeff$value[coeff$term == "alpha1"] +
-    coeff$value[coeff$term == "alpha4"] * ms +
-    coeff$value[coeff$term == "alpha5"] * ls
+  b_hs +
+    b_hs_ms * ms +
+    b_hs_ls * ls
 }
 
 me_hs <- calc_me_hs(15.355, 14.315, coeff_disb)
@@ -336,9 +493,9 @@ me_hs
 
 # MS Marginal Effects
 calc_me_ms <- function(hs, ls, coeff) {
-  coeff$value[coeff$term == "alpha2"] +
-    coeff$value[coeff$term == "alpha4"] * hs +
-    coeff$value[coeff$term == "alpha6"] * ls
+  b_ms +
+    b_hs_ms* hs +
+    b_ms_ls * ls
 }
 
 me_ms <- calc_me_ms(15.946, 14.315, coeff_disb)
@@ -347,9 +504,9 @@ me_ms
 
 # LS Marginal Effects
 calc_me_ls <- function(hs, ms, coeff) {
-  coeff$value[coeff$term == "alpha3"] +
-    coeff$value[coeff$term == "alpha5"] * hs +
-    coeff$value[coeff$term == "alpha6"] * ms
+  b_ls +
+    b_hs_ls * hs +
+    b_ms_ls* ms
 }
 
 me_ls <- calc_me_ls(15.946, 15.355, coeff_disb)
@@ -366,7 +523,8 @@ me_disb_table <-  xtable(me_disb_table,
                          caption = "Disbursement Marginal Effects")
 
 # Save the LaTeX table to the file
-print(me_disb_table , file = file.path(table_dir, "ME_disb_rr-R1.tex"))
+print(me_disb_table , file = file.path(table_dir, "ME_disb_rr.tex"))
 
 
 rm(list = ls())
+
